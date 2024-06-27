@@ -18,7 +18,7 @@ If you would like to use this bot on your server, you can follow these instructi
 
 ## Configuring the bot
 
-Currently, the config is hardcoded in version control. When you clone this repo, you'll need to edit the config in [ActiveMemberDiscordBot.kt](main/kotlin/regenerativeag/ActiveMemberDiscordBot.kt)
+Currently, the config is hardcoded in version control. When you clone this repo, you'll need to edit the config in [ActiveMemberDiscordBot.kt](src/main/kotlin/regenerativeag/ActiveMemberDiscordBot.kt)
 Currently, the rules used to configure this bot are:
 - Grant role X if the user posts on Y unique days in a period of Z days
 - Remove role X if the user hasn't posted on at least Y unique days in a period of Z days
