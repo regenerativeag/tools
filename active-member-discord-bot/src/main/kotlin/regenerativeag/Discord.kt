@@ -26,6 +26,8 @@ class Discord(
     private val restClient = RestClient(KtorRequestHandler(httpClient, token = token))
     private val usernameCache = UsernameCache(restClient)
     private val channelNameCache = ChannelNameCache(restClient)
+
+    /** Query dicord for enough recent post history that active member roles can be computed */
     fun getPostHistory(activeMemberConfig: ActiveMemberConfig, today: LocalDate): PostHistory {
         val fetcher = PostHistoryFetcher(
             restClient,
@@ -38,13 +40,15 @@ class Discord(
     }
 
 
-    fun mapUserIdsToNames( userIds: Iterable<UserId>): List<String> {
+    fun mapUserIdsToNames(userIds: Iterable<UserId>): List<String> {
         return userIds.map { usernameCache.lookup(it) }
     }
 
+    /** Of the users provided, only return the users which are still in the guild */
     fun filterToUsersCurrentlyInGuild(guildId: ULong, userIds: Set<UserId>): Set<UserId> {
         val sGuildId = Snowflake(guildId)
         return userIds.filter {
+            // TODO: Parallelize requests - https://github.com/regenerativeag/tools/issues/1
             runBlocking {
                 try {
                     restClient.guild.getGuildMember(sGuildId, Snowflake(it))
@@ -60,6 +64,7 @@ class Discord(
         }.toSet()
     }
 
+    /** Fetch the users with the given roleId */
     fun getUsersWithRole(guildId: ULong, role: ULong): Set<UserId> {
         val sGuildId = Snowflake(guildId)
         val sRole = Snowflake(role)
@@ -81,6 +86,8 @@ class Discord(
                 .mapNotNull { it.user.value?.id?.value}
                 .toSet()
     }
+
+    /** Remove the role from the user. Use [addActiveRole] to transition users between roles */
     private fun removeActiveRole(serverId: ServerId, roleId: RoleId, userId: UserId) {
         val username = usernameCache.lookup(userId)
         val sServerId = Snowflake(serverId)
@@ -97,6 +104,7 @@ class Discord(
         }
     }
 
+    /** Fetch all roles in the server */
     fun getServerRoles(serverId: ServerId): Map<RoleId, String> {
         val sServerId = Snowflake(serverId)
         return runBlocking {
@@ -106,6 +114,11 @@ class Discord(
         }
     }
 
+    /**
+     * Add an active member role to a user.
+     *
+     * If the user already has some other active member role, remove that role.
+     * */
     fun addActiveRole(activeMemberConfig: ActiveMemberConfig, roleConfig: ActiveMemberConfig.RoleConfig, userIds: Set<UserId>, ) {
         val userPairs = userIds.map { it to usernameCache.lookup(it) }
         val sServerId = Snowflake(activeMemberConfig.serverId)
@@ -114,14 +127,16 @@ class Discord(
             roleConfig.roleId to idx
         }.toMap()
         runBlocking {
+            // TODO: Parallelize requests - https://github.com/regenerativeag/tools/issues/1
             userPairs.forEach { (userId, username) ->
                 val sUserId = Snowflake(userId)
-
                 val userRoles = restClient.guild.getGuildMember(sServerId, sUserId).roles.map { it.value }.toSet()
                 if (roleConfig.roleId in userRoles) {
                     println("$username already has role ${roleConfig.roleId}")
                 } else {
                     val rolesToRemove = activeMemberConfig.roleConfigs.map { it.roleId }.toSet() - roleConfig.roleId
+
+                    // TODO: Parallelize requests - https://github.com/regenerativeag/tools/issues/1
                     rolesToRemove.forEach { roleIdToRemove ->
                         if (roleIdToRemove in userRoles) {
                             removeActiveRole(activeMemberConfig.serverId, roleIdToRemove, userId)
@@ -150,6 +165,7 @@ class Discord(
         }
     }
 
+    /** Log the bot into discord and call the callback whenever a message is received */
     fun login(onMessage: (Message) -> Unit) {
         val gateway = DefaultGateway()
 
