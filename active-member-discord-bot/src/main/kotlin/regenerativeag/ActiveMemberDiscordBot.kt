@@ -8,14 +8,14 @@ class ActiveMemberDiscordBot(
         private val discord: Discord,
 ) {
     private val lock = object { }
-    private val roleNameByRoleId = discord.getServerRoles(loadConfig().serverId)
+    private val roleNameByRoleId = discord.server.fetchAllRoles(loadConfig().serverId)
 
     fun login() {
         cleanReload()
 
         scheduleRecurringCleanup()
 
-        discord.login(::onMessage)
+        discord.bot.login(::onMessage)
     }
 
 
@@ -26,7 +26,7 @@ class ActiveMemberDiscordBot(
             val activeMemberConfig = loadConfig()
             val today = LocalDate.now()
 
-            val postHistory = discord.getPostHistory(
+            val postHistory = discord.postHistory.fetch(
                     activeMemberConfig,
                     today,
             )
@@ -40,32 +40,29 @@ class ActiveMemberDiscordBot(
             computedMembersSets.zip(activeMemberConfig.roleConfigs).forEach { (computedMemberIds, roleConfig) ->
                 println("")
                 val roleName = roleNameByRoleId[roleConfig.roleId]
-                val computedMemberNames = discord.mapUserIdsToNames(computedMemberIds)
-                val currentMemberIds = discord.getUsersWithRole(activeMemberConfig.serverId, roleConfig.roleId)
-                val currentMemberNames = discord.mapUserIdsToNames(currentMemberIds)
+                val computedMemberNames = discord.users.mapUserIdsToNames(computedMemberIds)
+                val currentMemberIds = discord.users.getUsersWithRole(activeMemberConfig.serverId, roleConfig.roleId)
+                val currentMemberNames = discord.users.mapUserIdsToNames(currentMemberIds)
                 val userIdsMeetingThreshold = computedMemberIds - currentMemberIds
-                val userNamesMeetingThreshold = discord.mapUserIdsToNames(userIdsMeetingThreshold)
+                val userNamesMeetingThreshold = discord.users.mapUserIdsToNames(userIdsMeetingThreshold)
                 println("Current members in $roleName (${currentMemberIds.size}): $currentMemberNames")
                 println("Computed members in $roleName (${computedMemberIds.size}): $computedMemberNames")
                 println("New members to add to $roleName (${userIdsMeetingThreshold.size}): $userNamesMeetingThreshold")
-                val userIdsToAdd = discord.filterToUsersCurrentlyInGuild(
+                val userIdsToAdd = discord.users.filterToUsersCurrentlyInGuild(
                     activeMemberConfig.serverId,
                     userIdsMeetingThreshold
                 )
                 val usersWhoLeftButMetThreshold = userIdsMeetingThreshold - userIdsToAdd
                 departedUserIds.addAll(usersWhoLeftButMetThreshold)
-                discord.addActiveRole(activeMemberConfig, roleConfig, userIdsToAdd)
-//                if (roleName == "Active Member") {
-//                    discord.addActiveRole(activeMemberConfig, roleConfig, setOf(1003068122997207060u))
-//                }
+                discord.users.addActiveRole(activeMemberConfig, roleConfig, userIdsToAdd)
                 memberIdsWhoHadARoleBeforeRunning.addAll(currentMemberIds)
                 memberIdsWhoHaveARoleAfterRunning.addAll(computedMemberIds)
             }
 
             println("")
-            println("Members who met a threshold, but left: ${discord.mapUserIdsToNames(departedUserIds)}")
+            println("Members who met a threshold, but left: ${discord.users.mapUserIdsToNames(departedUserIds)}")
             val inactiveMemberIds = memberIdsWhoHadARoleBeforeRunning - memberIdsWhoHaveARoleAfterRunning
-            println("Members who no longer meet a threshold: ${discord.mapUserIdsToNames(inactiveMemberIds)}")
+            println("Members who no longer meet a threshold: ${discord.users.mapUserIdsToNames(inactiveMemberIds)}")
         }
         println("Reload complete")
     }
@@ -85,7 +82,7 @@ class ActiveMemberDiscordBot(
                 val meetsThreshold = meetsThreshold(roleConfig, postDays, LocalDate.now())
                 if (meetsThreshold) {
                     println("(Re)adding ${roleNameByRoleId[roleConfig.roleId]} for \"${message.userId}\".")
-                    discord.addActiveRole(activeMemberConfig, roleConfig, setOf(message.userId))
+                    discord.users.addActiveRole(activeMemberConfig, roleConfig, setOf(message.userId))
                     break
                 }
             }

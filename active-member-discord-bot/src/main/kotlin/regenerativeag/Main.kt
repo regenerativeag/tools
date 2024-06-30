@@ -13,7 +13,7 @@ fun main(args: Array<String>) {
     }
 }
 
-private fun run(val discordApiToken: String) {
+private fun run(discordApiToken: String) {
     val httpClient = createHttpClient()
     val discord = Discord(httpClient, discordApiToken)
     val database = Database()
