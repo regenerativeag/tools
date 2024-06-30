@@ -100,8 +100,8 @@ class Discord(
             val userPairs = userIds.map { it to usernameCache.lookup(it) }
             val sServerId = Snowflake(activeMemberConfig.serverId)
             val sRoleId = Snowflake(roleConfig.roleId)
-            val roleIdxByRoleId = activeMemberConfig.roleConfigs.mapIndexed { idx, roleConfig ->
-                roleConfig.roleId to idx
+            val roleIdxByRoleId = activeMemberConfig.roleConfigs.mapIndexed { idx, cfg ->
+                cfg.roleId to idx
             }.toMap()
             runBlocking {
                 // TODO: Parallelize requests - https://github.com/regenerativeag/tools/issues/1
@@ -142,7 +142,31 @@ class Discord(
             }
         }
 
-        /** Remove the role from the user. Use [addActiveRole] to transition users between roles */
+        fun removeAllActiveRolesFromUser(activeMemberConfig: ActiveMemberConfig, userId: UserId) {
+            val username = usernameCache.lookup(userId)
+            val sServerId = Snowflake(activeMemberConfig.serverId)
+            runBlocking {
+                val sUserId = Snowflake(userId)
+                val userRoles = restClient.guild.getGuildMember(sServerId, sUserId).roles.map { it.value }.toSet()
+                val activeRoles = activeMemberConfig.roleConfigs.map { it.roleId }.toSet()
+                val userActiveRoles = userRoles.intersect(activeRoles)
+                if (userActiveRoles.isEmpty()) {
+                    println("$username has no active roles to remove")
+                } else {
+                    userActiveRoles.forEach {
+                        val sRoleId = Snowflake(it)
+                        restClient.guild.deleteRoleFromGuildMember(sServerId, sUserId, sRoleId)
+                        println("Removed role=$it from $username")
+                    }
+                }
+            }
+        }
+
+        /** Remove the role from the user.
+         * This function is private, as it likely should not be used directly...
+         *  - use [addActiveRole] to transition users between roles
+         *  - use [removeAllActiveRolesFromUser] to remove all active roles from a user
+         */
         private fun removeActiveRole(serverId: ServerId, roleId: RoleId, userId: UserId) {
             val username = usernameCache.lookup(userId)
             val sServerId = Snowflake(serverId)
