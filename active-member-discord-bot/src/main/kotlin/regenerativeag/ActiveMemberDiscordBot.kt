@@ -76,6 +76,9 @@ class ActiveMemberDiscordBot(
                 println("Members who met a threshold, but left: ${discord.users.mapUserIdsToNames(departedUserIds)}")
                 val inactiveMemberIds = memberIdsWhoHadARoleBeforeRunning - memberIdsWhoHaveARoleAfterRunning
                 println("Members who no longer meet a threshold: ${discord.users.mapUserIdsToNames(inactiveMemberIds)}")
+                inactiveMemberIds.forEach { inactiveMemberId ->
+                    discord.users.removeAllActiveRolesFromUser(activeMemberConfig, inactiveMemberId)
+                }
             }
 
             println("Reload complete")
@@ -85,21 +88,25 @@ class ActiveMemberDiscordBot(
         private fun updateRoleMembers(computedMemberIds: Set<UserId>, roleConfig: ActiveMemberConfig.RoleConfig) {
             println("")
             val roleName = roleNameByRoleId[roleConfig.roleId]
-            val computedMemberNames = discord.users.mapUserIdsToNames(computedMemberIds)
+            fun print(prefix: String, userIds: Set<UserId>) {
+                println("$prefix $roleName (${userIds.size}): ${discord.users.mapUserIdsToNames(userIds).sorted()}")
+            }
+
+            print("Computed members in", computedMemberIds)
+
             val currentMemberIds = discord.users.getUsersWithRole(activeMemberConfig.serverId, roleConfig.roleId)
-            val currentMemberNames = discord.users.mapUserIdsToNames(currentMemberIds)
-            val userIdsMeetingThreshold = computedMemberIds - currentMemberIds
-            val userNamesMeetingThreshold = discord.users.mapUserIdsToNames(userIdsMeetingThreshold)
-            println("Current members in $roleName (${currentMemberIds.size}): $currentMemberNames")
-            println("Computed members in $roleName (${computedMemberIds.size}): $computedMemberNames")
-            println("New members to add to $roleName (${userIdsMeetingThreshold.size}): $userNamesMeetingThreshold")
-            val userIdsToAdd = discord.users.filterToUsersCurrentlyInGuild(
+            print("Current members in", currentMemberIds)
+
+            val userIdsToAdd = computedMemberIds - currentMemberIds
+            print("New members to add to", userIdsToAdd)
+            val retainedUserIdsToAdd = discord.users.filterToUsersCurrentlyInGuild(
                 activeMemberConfig.serverId,
-                userIdsMeetingThreshold
+                userIdsToAdd
             )
-            val usersWhoLeftButMetThreshold = userIdsMeetingThreshold - userIdsToAdd
+            val usersWhoLeftButMetThreshold = userIdsToAdd - retainedUserIdsToAdd
             departedUserIds.addAll(usersWhoLeftButMetThreshold)
             discord.users.addActiveRole(activeMemberConfig, roleConfig, userIdsToAdd)
+
             memberIdsWhoHadARoleBeforeRunning.addAll(currentMemberIds)
             memberIdsWhoHaveARoleAfterRunning.addAll(computedMemberIds)
         }
