@@ -4,11 +4,12 @@ import regenerativeag.model.*
 import java.time.LocalDate
 
 class ActiveMemberDiscordBot(
-        private val database: Database,
-        private val discord: Discord,
+    private val database: Database,
+    private val discord: Discord,
+    private val activeMemberConfig: ActiveMemberConfig,
 ) {
     private val lock = object { }
-    private val roleNameByRoleId = discord.server.fetchAllRoles(loadConfig().serverId)
+    private val roleNameByRoleId = discord.server.fetchAllRoles(activeMemberConfig.serverId)
 
     fun login() {
         cleanReload()
@@ -23,7 +24,6 @@ class ActiveMemberDiscordBot(
     private fun cleanReload() {
         println("Reloading")
         synchronized(lock) {
-            val activeMemberConfig = loadConfig()
             val today = LocalDate.now()
 
             val postHistory = discord.postHistory.fetch(
@@ -67,8 +67,8 @@ class ActiveMemberDiscordBot(
         println("Reload complete")
     }
 
+    /** If this message results in the user meeting an active-member threshold, adjust the user's roles. */
     private fun onMessage(message: Message) {
-        val activeMemberConfig = loadConfig()
         if (message.userId in activeMemberConfig.excludedUserIds) {
             return
         }
@@ -89,49 +89,9 @@ class ActiveMemberDiscordBot(
         }
     }
 
-    private fun scheduleRecurringCleanup(): Unit {} // TODO
-
-    /** remove post history that isn't needed from the DB, and unassign users who haven't posted in a while */
-    private fun recurringCleanup() {
-        synchronized(lock) {
-            throw NotImplementedError()
-        }
+    private fun scheduleRecurringCleanup() {
+        // TODO: https://github.com/orgs/regenerativeag/projects/1/views/1?pane=issue&itemId=69255754
     }
-
-    private fun loadConfig() = ActiveMemberConfig(
-            1162017936656044042u, // guildId
-            setOf(
-                1221517195931156530uL, // Active Member Bot (Larry)
-                302050872383242240uL,  // Disboard
-                476259371912003597uL,  // Discord.me
-                155149108183695360uL,  // Dyno
-                204255221017214977uL,  // YAGPDB.xyz
-            ),
-            listOf(
-                // Guest
-                ActiveMemberConfig.RoleConfig(
-                    1240396803946582056u,
-                    AddRoleConfig(60, 1),
-                    KeepRoleConfig(60, 1),
-                    ActiveMemberConfig.WelcomeMessageConfig(
-                        1162017937796911209u,
-                        "A warm hello to our newest guest, ",
-                        " :relaxed: Please check out <#1240458302530519123> when you have a moment.",
-                    )
-                ),
-                // Active Member
-                ActiveMemberConfig.RoleConfig(
-                    1223026651340996698u,
-                    AddRoleConfig(60, 4),
-                    KeepRoleConfig(30, 1),
-                    ActiveMemberConfig.WelcomeMessageConfig(
-                        1223262623194153111u,
-                        "Welcome to our community, ",
-                        "!",
-                    )
-                )
-            )
-    )
 
     companion object {
 

@@ -8,8 +8,7 @@ object BuildConstants {
         val jvm = 17
         val kotlinCoroutinesCore = "1.8.0"
         val kord = "0.13.1"
-        val ktor = "2.3.10"
-        val jacksonModuleKotlin = "2.17.0"
+        val jackson = "2.17.1"
     }
 
     object TestDependencyVersions {

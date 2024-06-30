@@ -1,0 +1,38 @@
+# This config is used for the regenerative agriculture discord server.
+
+# You can use this config as a template to create your own.
+
+serverId: 1162017936656044042
+
+excludedUserIds:
+  - 1221517195931156530 # Active Member Bot (Larry)
+  - 302050872383242240  # Disboard
+  - 476259371912003597  # Discord.me
+  - 155149108183695360  # Dyno
+  - 204255221017214977  # YAGPDB.xyz
+
+roleConfigs:
+  # Guest
+  - roleId: 1240396803946582056
+    addRoleConfig:
+      windowSize: 60
+      minPostDays: 1
+    keepRoleConfig:
+      windowSize: 60
+      minPostDays: 1
+    welcomeMessageConfig:
+      channel: 1162017937796911209
+      prefix: "A warm hello to our newest guest, "
+      suffix: " :relaxed: Please check out <#1240458302530519123> when you have a moment."
+  # Active Member
+  - roleId: 1223026651340996698
+    addRoleConfig:
+      windowSize: 60
+      minPostDays: 4
+    keepRoleConfig:
+      windowSize: 30
+      minPostDays: 1
+    welcomeMessageConfig:
+      channel: 1223262623194153111
+      prefix: "Welcome to our community, "
+      suffix: "!"

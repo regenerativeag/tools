@@ -13,12 +13,16 @@ If you would like to use this bot on your server, you can follow these instructi
 2. Add the bot to your server and give it access to the appropriate rooms. Also give the bot access to manage roles.
 3. Copy your bot's access token
 4. Create an environment variable named `DISCORD_API_TOKEN` with the value of your bot's access token
-5. Execute the shell command: `./gradlew active-member-discord-bot:run`. 
-  - Alternatively, you can build the project (`./gradlew active-member-discord-bot:build`), and run the exported JAR (`java -jar active-member-discord-bot/build/libs/active-member-discord-bot-0.1-all.jar`).
+5. Execute the shell command: `./gradlew active-member-discord-bot:run --args="bot-config.yml"`.
+   - replace `bot-config.yml` with the path to your server's config
+   - Alternatively, you can build the project (`./gradlew active-member-discord-bot:build`), and run the exported JAR (`java -jar active-member-discord-bot/build/libs/active-member-discord-bot-0.1-all.jar active-member-discord-bot/bot-config.yml`).
 
 ## Configuring the bot
 
-Currently, the config is hardcoded in version control. When you clone this repo, you'll need to edit the config in [ActiveMemberDiscordBot.kt](src/main/kotlin/regenerativeag/ActiveMemberDiscordBot.kt)
+Here is the config used for the Regenerative Ag discord server: [bot-config.yml](bot-config.yml)
+
+You can copy this config and update it with values relevant to your server.
+
 Currently, the rules used to configure this bot are:
 - Grant role X if the user posts on Y unique days in a period of Z days
 - Remove role X if the user hasn't posted on at least Y unique days in a period of Z days
