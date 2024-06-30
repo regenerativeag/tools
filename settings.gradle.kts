@@ -1,3 +1,6 @@
 rootProject.name = "Tools"
 
-include(":active-member-discord-bot")
+include(
+    ":active-member-discord-bot",
+    ":json-lib",
+)
