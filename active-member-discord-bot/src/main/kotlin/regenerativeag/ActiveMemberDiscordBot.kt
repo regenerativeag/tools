@@ -12,59 +12,11 @@ class ActiveMemberDiscordBot(
     private val roleNameByRoleId = discord.server.fetchAllRoles(activeMemberConfig.serverId)
 
     fun login() {
-        cleanReload()
+        Reloader().cleanReload()
 
         scheduleRecurringCleanup()
 
         discord.bot.login(::onMessage)
-    }
-
-
-    /** Read the whole message history, correct any issues in the DB, and correct any issues in people's roles */
-    private fun cleanReload() {
-        println("Reloading")
-        synchronized(lock) {
-            val today = LocalDate.now()
-
-            val postHistory = discord.postHistory.fetch(
-                    activeMemberConfig,
-                    today,
-            )
-            println("Overwriting post history: $postHistory")
-            database.overwritePostHistory(postHistory)
-
-            val computedMembersSets = computeActiveMembers(postHistory, today, activeMemberConfig)
-            val departedUserIds = mutableSetOf<UserId>()
-            val memberIdsWhoHadARoleBeforeRunning = mutableSetOf<UserId>()
-            val memberIdsWhoHaveARoleAfterRunning = mutableSetOf<UserId>()
-            computedMembersSets.zip(activeMemberConfig.roleConfigs).forEach { (computedMemberIds, roleConfig) ->
-                println("")
-                val roleName = roleNameByRoleId[roleConfig.roleId]
-                val computedMemberNames = discord.users.mapUserIdsToNames(computedMemberIds)
-                val currentMemberIds = discord.users.getUsersWithRole(activeMemberConfig.serverId, roleConfig.roleId)
-                val currentMemberNames = discord.users.mapUserIdsToNames(currentMemberIds)
-                val userIdsMeetingThreshold = computedMemberIds - currentMemberIds
-                val userNamesMeetingThreshold = discord.users.mapUserIdsToNames(userIdsMeetingThreshold)
-                println("Current members in $roleName (${currentMemberIds.size}): $currentMemberNames")
-                println("Computed members in $roleName (${computedMemberIds.size}): $computedMemberNames")
-                println("New members to add to $roleName (${userIdsMeetingThreshold.size}): $userNamesMeetingThreshold")
-                val userIdsToAdd = discord.users.filterToUsersCurrentlyInGuild(
-                    activeMemberConfig.serverId,
-                    userIdsMeetingThreshold
-                )
-                val usersWhoLeftButMetThreshold = userIdsMeetingThreshold - userIdsToAdd
-                departedUserIds.addAll(usersWhoLeftButMetThreshold)
-                discord.users.addActiveRole(activeMemberConfig, roleConfig, userIdsToAdd)
-                memberIdsWhoHadARoleBeforeRunning.addAll(currentMemberIds)
-                memberIdsWhoHaveARoleAfterRunning.addAll(computedMemberIds)
-            }
-
-            println("")
-            println("Members who met a threshold, but left: ${discord.users.mapUserIdsToNames(departedUserIds)}")
-            val inactiveMemberIds = memberIdsWhoHadARoleBeforeRunning - memberIdsWhoHaveARoleAfterRunning
-            println("Members who no longer meet a threshold: ${discord.users.mapUserIdsToNames(inactiveMemberIds)}")
-        }
-        println("Reload complete")
     }
 
     /** If this message results in the user meeting an active-member threshold, adjust the user's roles. */
@@ -78,6 +30,7 @@ class ActiveMemberDiscordBot(
             if (!isFirstPostOfDay) {
                 return
             }
+            // check roles in reverse order, so that user is granted the highest role they are qualified for
             for (roleConfig in activeMemberConfig.roleConfigs.reversed()) {
                 val meetsThreshold = meetsThreshold(roleConfig, postDays, LocalDate.now())
                 if (meetsThreshold) {
@@ -93,8 +46,68 @@ class ActiveMemberDiscordBot(
         // TODO: https://github.com/orgs/regenerativeag/projects/1/views/1?pane=issue&itemId=69255754
     }
 
+    /** Reload DB state from discord, and ensure everyone's roles are up-to-date */
+    private inner class Reloader {
+        private val departedUserIds = mutableSetOf<UserId>()
+        private val memberIdsWhoHadARoleBeforeRunning = mutableSetOf<UserId>()
+        private val memberIdsWhoHaveARoleAfterRunning = mutableSetOf<UserId>()
+
+        /** Read the whole message history, correct any issues in the DB, and correct any issues in people's roles */
+        fun cleanReload() {
+            println("Reloading")
+
+            val today = LocalDate.now()
+            val postHistory = discord.postHistory.fetch(
+                activeMemberConfig,
+                today,
+            )
+
+            synchronized(lock) {
+                println("Overwriting post history: $postHistory")
+                database.overwritePostHistory(postHistory)
+
+                // Iterate over every role, updating all members in that role
+                val computedMembersSets = computeActiveMembers(postHistory, today, activeMemberConfig)
+                computedMembersSets.zip(activeMemberConfig.roleConfigs).forEach {
+                    updateRoleMembers(it.first, it.second)
+                }
+
+                println("")
+                println("Members who met a threshold, but left: ${discord.users.mapUserIdsToNames(departedUserIds)}")
+                val inactiveMemberIds = memberIdsWhoHadARoleBeforeRunning - memberIdsWhoHaveARoleAfterRunning
+                println("Members who no longer meet a threshold: ${discord.users.mapUserIdsToNames(inactiveMemberIds)}")
+            }
+
+            println("Reload complete")
+        }
+
+        /** Ensure that the role identified by [roleConfig] includes exactly the members in [computedMemberIds] */
+        private fun updateRoleMembers(computedMemberIds: Set<UserId>, roleConfig: ActiveMemberConfig.RoleConfig) {
+            println("")
+            val roleName = roleNameByRoleId[roleConfig.roleId]
+            val computedMemberNames = discord.users.mapUserIdsToNames(computedMemberIds)
+            val currentMemberIds = discord.users.getUsersWithRole(activeMemberConfig.serverId, roleConfig.roleId)
+            val currentMemberNames = discord.users.mapUserIdsToNames(currentMemberIds)
+            val userIdsMeetingThreshold = computedMemberIds - currentMemberIds
+            val userNamesMeetingThreshold = discord.users.mapUserIdsToNames(userIdsMeetingThreshold)
+            println("Current members in $roleName (${currentMemberIds.size}): $currentMemberNames")
+            println("Computed members in $roleName (${computedMemberIds.size}): $computedMemberNames")
+            println("New members to add to $roleName (${userIdsMeetingThreshold.size}): $userNamesMeetingThreshold")
+            val userIdsToAdd = discord.users.filterToUsersCurrentlyInGuild(
+                activeMemberConfig.serverId,
+                userIdsMeetingThreshold
+            )
+            val usersWhoLeftButMetThreshold = userIdsMeetingThreshold - userIdsToAdd
+            departedUserIds.addAll(usersWhoLeftButMetThreshold)
+            discord.users.addActiveRole(activeMemberConfig, roleConfig, userIdsToAdd)
+            memberIdsWhoHadARoleBeforeRunning.addAll(currentMemberIds)
+            memberIdsWhoHaveARoleAfterRunning.addAll(computedMemberIds)
+        }
+    }
+
     companion object {
 
+        /** Determine whether the user should have the role identified by [roleConfig], given the user's [postDays] */
         internal fun meetsThreshold(roleConfig: ActiveMemberConfig.RoleConfig, postDays: Set<LocalDate>, today: LocalDate): Boolean {
             val earliestAddDate = today.minusDays(roleConfig.addRoleConfig.windowSize - 1L)
             val earliestKeepDate = today.minusDays(roleConfig.keepRoleConfig.windowSize - 1L)
@@ -103,21 +116,22 @@ class ActiveMemberDiscordBot(
             return meetsAddThreshold && meetsKeepThreshold
         }
 
+        /**
+         * Return the members that should be in each role.
+         * The result is in the same order as [ActiveMemberConfig.roleConfigs]
+         */
         internal fun computeActiveMembers(
                 postHistory: PostHistory,
                 today: LocalDate,
                 activeMemberConfig: ActiveMemberConfig,
         ): List<Set<UserId>> {
             val usersByRoleIndex = activeMemberConfig.roleConfigs.map { roleConfig ->
-                val earliestAddDate = today.minusDays(roleConfig.addRoleConfig.windowSize - 1L)
-                val earliestKeepDate = today.minusDays(roleConfig.keepRoleConfig.windowSize - 1L)
-
                 val membersMeetingThreshold = postHistory.filterValues { meetsThreshold(roleConfig, it, today) }.keys
                 membersMeetingThreshold - activeMemberConfig.excludedUserIds
             }
 
             val seen = mutableSetOf<UserId>()
-            // user should only get the latest role they are qualified for
+            // user should only get the highest-priority role they are qualified for
             return usersByRoleIndex.reversed().map { usersInRole ->
                 val usersToKeep = usersInRole - seen
                 seen.addAll(usersToKeep)
