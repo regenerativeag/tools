@@ -31,6 +31,8 @@ class Database() {
         }
     }
 
+    fun getPostHistory() = postHistory.toMap()
+
     companion object {
         data class AddPostResult(val isFirstPostOfDay: Boolean, val postDays: Set<LocalDate>)
     }

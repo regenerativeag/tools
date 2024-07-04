@@ -1,8 +1,14 @@
 package regenerativeag
 
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import regenerativeag.model.*
 import java.time.LocalDate
+import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 
 class ActiveMemberDiscordBot(
     private val database: Database,
@@ -16,7 +22,7 @@ class ActiveMemberDiscordBot(
     fun login() {
         Reloader().cleanReload()
 
-        scheduleRecurringCleanup()
+        scheduleRecurringRoleDowngrading()
 
         discord.bot.login(::onMessage)
     }
@@ -44,8 +50,28 @@ class ActiveMemberDiscordBot(
         }
     }
 
-    private fun scheduleRecurringCleanup() {
-        // TODO: https://github.com/orgs/regenerativeag/projects/1/views/1?pane=issue&itemId=69255754
+    /** schedule a recurring job that downgrades memberships for those who haven't posted in a while */
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun scheduleRecurringRoleDowngrading() {
+        fun millisUntilNextRun(): Long {
+            val now = ZonedDateTime.now()
+            val today = ZonedDateTime.of(now.year, now.monthValue, now.dayOfMonth, 0, 0, 0, 0, now.zone)
+            val nextRunTime = today.plusDays(1).plusMinutes(5)
+            return ChronoUnit.MILLIS.between(now, nextRunTime)
+        }
+
+        suspend fun downgradeAndReschedule() {
+            logger.debug { "Looking for members who no longer meet role thresholds..." }
+            Reloader().downgradeRoles()
+            delay(millisUntilNextRun())
+            downgradeAndReschedule()
+        }
+
+        GlobalScope.launch {
+            delay(millisUntilNextRun())
+            downgradeAndReschedule()
+        }
+
     }
 
     /** Reload DB state from discord, and ensure everyone's roles are up-to-date */
@@ -68,21 +94,34 @@ class ActiveMemberDiscordBot(
                 logger.debug { "Overwriting post history: $postHistory" }
                 database.overwritePostHistory(postHistory)
 
-                // Iterate over every role, updating all members in that role
-                val computedMembersSets = computeActiveMembers(postHistory, today, activeMemberConfig)
-                computedMembersSets.zip(activeMemberConfig.roleConfigs).forEach {
-                    updateRoleMembers(it.first, it.second)
-                }
-
-                logger.debug { "Members who met a threshold, but left: ${discord.users.mapUserIdsToNames(departedUserIds)}" }
-                val inactiveMemberIds = memberIdsWhoHadARoleBeforeRunning - memberIdsWhoHaveARoleAfterRunning
-                logger.debug { "Members who no longer meet a threshold: ${discord.users.mapUserIdsToNames(inactiveMemberIds)}" }
-                inactiveMemberIds.forEach { inactiveMemberId ->
-                    discord.users.removeAllActiveRolesFromUser(activeMemberConfig, inactiveMemberId)
-                }
+                updateMemberRolesGivenPostHistory(postHistory, today)
             }
 
             logger.debug { "Reload complete" }
+        }
+
+        /** Downgrade roles for those who no longer meet thresholds */
+        fun downgradeRoles() {
+            synchronized(lock) {
+                val today = LocalDate.now()
+                val postHistory = database.getPostHistory()
+                updateMemberRolesGivenPostHistory(postHistory, today)
+            }
+        }
+
+        private fun updateMemberRolesGivenPostHistory(postHistory: PostHistory, today: LocalDate) {
+            // Iterate over every role, updating all members in that role
+            val computedMembersSets = computeActiveMembers(postHistory, today, activeMemberConfig)
+            computedMembersSets.zip(activeMemberConfig.roleConfigs).forEach {
+                updateRoleMembers(it.first, it.second)
+            }
+
+            logger.debug { "Members who met a threshold, but left: ${discord.users.mapUserIdsToNames(departedUserIds)}" }
+            val inactiveMemberIds = memberIdsWhoHadARoleBeforeRunning - memberIdsWhoHaveARoleAfterRunning
+            logger.debug { "Members who no longer meet a threshold: ${discord.users.mapUserIdsToNames(inactiveMemberIds)}" }
+            inactiveMemberIds.forEach { inactiveMemberId ->
+                discord.users.removeAllActiveRolesFromUser(activeMemberConfig, inactiveMemberId)
+            }
         }
 
         /** Ensure that the role identified by [roleConfig] includes exactly the members in [computedMemberIds] */
