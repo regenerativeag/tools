@@ -1,5 +1,6 @@
 package regenerativeag
 
+import mu.KotlinLogging
 import regenerativeag.model.*
 import java.time.LocalDate
 
@@ -8,6 +9,7 @@ class ActiveMemberDiscordBot(
     private val discord: Discord,
     private val activeMemberConfig: ActiveMemberConfig,
 ) {
+    private val logger = KotlinLogging.logger {  }
     private val lock = object { }
     private val roleNameByRoleId = discord.server.fetchAllRoles(activeMemberConfig.serverId)
 
@@ -34,7 +36,7 @@ class ActiveMemberDiscordBot(
             for (roleConfig in activeMemberConfig.roleConfigs.reversed()) {
                 val meetsThreshold = meetsThreshold(roleConfig, postDays, LocalDate.now())
                 if (meetsThreshold) {
-                    println("(Re)adding ${roleNameByRoleId[roleConfig.roleId]} for \"${message.userId}\".")
+                    logger.debug { "(Re)adding ${roleNameByRoleId[roleConfig.roleId]} for \"${message.userId}\"." }
                     discord.users.addActiveRole(activeMemberConfig, roleConfig, setOf(message.userId))
                     break
                 }
@@ -54,7 +56,7 @@ class ActiveMemberDiscordBot(
 
         /** Read the whole message history, correct any issues in the DB, and correct any issues in people's roles */
         fun cleanReload() {
-            println("Reloading")
+            logger.debug { "Reloading" }
 
             val today = LocalDate.now()
             val postHistory = discord.postHistory.fetch(
@@ -63,7 +65,7 @@ class ActiveMemberDiscordBot(
             )
 
             synchronized(lock) {
-                println("Overwriting post history: $postHistory")
+                logger.debug { "Overwriting post history: $postHistory" }
                 database.overwritePostHistory(postHistory)
 
                 // Iterate over every role, updating all members in that role
@@ -72,24 +74,22 @@ class ActiveMemberDiscordBot(
                     updateRoleMembers(it.first, it.second)
                 }
 
-                println("")
-                println("Members who met a threshold, but left: ${discord.users.mapUserIdsToNames(departedUserIds)}")
+                logger.debug { "Members who met a threshold, but left: ${discord.users.mapUserIdsToNames(departedUserIds)}" }
                 val inactiveMemberIds = memberIdsWhoHadARoleBeforeRunning - memberIdsWhoHaveARoleAfterRunning
-                println("Members who no longer meet a threshold: ${discord.users.mapUserIdsToNames(inactiveMemberIds)}")
+                logger.debug { "Members who no longer meet a threshold: ${discord.users.mapUserIdsToNames(inactiveMemberIds)}" }
                 inactiveMemberIds.forEach { inactiveMemberId ->
                     discord.users.removeAllActiveRolesFromUser(activeMemberConfig, inactiveMemberId)
                 }
             }
 
-            println("Reload complete")
+            logger.debug { "Reload complete" }
         }
 
         /** Ensure that the role identified by [roleConfig] includes exactly the members in [computedMemberIds] */
         private fun updateRoleMembers(computedMemberIds: Set<UserId>, roleConfig: ActiveMemberConfig.RoleConfig) {
-            println("")
             val roleName = roleNameByRoleId[roleConfig.roleId]
             fun print(prefix: String, userIds: Set<UserId>) {
-                println("$prefix $roleName (${userIds.size}): ${discord.users.mapUserIdsToNames(userIds).sorted()}")
+                logger.debug { "$prefix $roleName (${userIds.size}): ${discord.users.mapUserIdsToNames(userIds).sorted()}" }
             }
 
             print("Computed members in", computedMemberIds)

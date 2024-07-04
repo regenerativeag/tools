@@ -9,6 +9,7 @@ import dev.kord.rest.request.KtorRequestException
 import dev.kord.rest.route.Position
 import dev.kord.rest.service.RestClient
 import kotlinx.coroutines.runBlocking
+import mu.KotlinLogging
 import regenerativeag.model.MutablePostHistory
 import regenerativeag.model.PostHistory
 import regenerativeag.model.UserId
@@ -22,6 +23,7 @@ class PostHistoryFetcher(
     private val today: LocalDate,
     private val channelNameCache: ChannelNameCache
 ) {
+    private val logger = KotlinLogging.logger { }
 
     fun fetch(): PostHistory {
         val sGuildId = Snowflake(guildId)
@@ -29,7 +31,7 @@ class PostHistoryFetcher(
         val earliestValidDate = today.minusDays(days - 1L)
         runBlocking {
             val channels = restClient.guild.getGuildChannels(sGuildId).filter { it.type != ChannelType.GuildCategory }
-            println("Found channels: ${channels.map {it.name.value}}")
+            logger.debug { "Found channels: ${channels.map {it.name.value}}" }
             channels.forEach { channel ->
                 val (channelPostHistory, threadsInChannel) = readChannelPostHistory(earliestValidDate, channel)
                 postHistory.addHistoryFrom(channelPostHistory)
@@ -52,7 +54,7 @@ class PostHistoryFetcher(
         channel: DiscordChannel,
         limit: Int = 100
     ): Pair<MutablePostHistory, MutableSet<DiscordChannel>> {
-        println("Getting messages from '${channel.name.value}'")
+        logger.debug { "Getting messages from '${channel.name.value}'" }
         channelNameCache.cacheFrom(channel)
         var lastSeenMessage: DiscordMessage? = null
         val threadsInChannel = mutableSetOf<DiscordChannel>()
@@ -66,7 +68,7 @@ class PostHistoryFetcher(
                 )
             } catch (e: KtorRequestException) {
                 if (e.status.code == 403) {
-                    println("Access denied for channel '${channel.name.value}'")
+                    logger.debug { "Access denied for channel '${channel.name.value}'" }
                     return mutableMapOf<UserId, MutableSet<LocalDate>>() to mutableSetOf()
                 } else {
                     throw e
@@ -100,11 +102,11 @@ class PostHistoryFetcher(
                 channel.id,
                 ListThreadsByTimestampRequest(limit=limit)
             ).threads.also { threads ->
-                println("found archived threads in channel: ${threads.map { it.name.value }}")
+                logger.debug { "found archived threads in channel: ${threads.map { it.name.value }}" }
             }
         } catch (e: KtorRequestException) {
             if (e.status.code == 403) {
-                println("Access denied for channel '${channel.name.value}'")
+                logger.debug { "Access denied for channel '${channel.name.value}'" }
                 return listOf()
             } else {
                 throw e

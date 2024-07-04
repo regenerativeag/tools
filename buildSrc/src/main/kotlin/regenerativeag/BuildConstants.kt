@@ -6,6 +6,8 @@ object BuildConstants {
 
     object DependencyVersions {
         val jvm = 17
+        val slf4j = "2.0.3"
+        val kotlinLogging = "5.1.0"
         val kotlinCoroutinesCore = "1.8.0"
         val kord = "0.13.1"
         val jackson = "2.17.1"

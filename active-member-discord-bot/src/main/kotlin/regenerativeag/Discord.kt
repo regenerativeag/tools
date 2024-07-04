@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.runBlocking
+import mu.KotlinLogging
 import regenerativeag.discord.*
 import regenerativeag.model.*
 import java.time.LocalDate
@@ -23,6 +24,7 @@ class Discord(
     httpClient: HttpClient,
     private val token: String,
 ) {
+    private val logger = KotlinLogging.logger { }
     private val restClient = RestClient(KtorRequestHandler(httpClient, token = token))
     private val usernameCache = UsernameCache(restClient)
     private val channelNameCache = ChannelNameCache(restClient)
@@ -109,7 +111,7 @@ class Discord(
                     val sUserId = Snowflake(userId)
                     val userRoles = restClient.guild.getGuildMember(sServerId, sUserId).roles.map { it.value }.toSet()
                     if (roleConfig.roleId in userRoles) {
-                        println("$username already has role ${roleConfig.roleId}")
+                        logger.debug { "$username already has role ${roleConfig.roleId}" }
                     } else {
                         val rolesToRemove = activeMemberConfig.roleConfigs.map { it.roleId }.toSet() - roleConfig.roleId
 
@@ -151,12 +153,12 @@ class Discord(
                 val activeRoles = activeMemberConfig.roleConfigs.map { it.roleId }.toSet()
                 val userActiveRoles = userRoles.intersect(activeRoles)
                 if (userActiveRoles.isEmpty()) {
-                    println("$username has no active roles to remove")
+                    logger.debug { "$username has no active roles to remove" }
                 } else {
                     userActiveRoles.forEach {
                         val sRoleId = Snowflake(it)
                         restClient.guild.deleteRoleFromGuildMember(sServerId, sUserId, sRoleId)
-                        println("Removed role=$it from $username")
+                        logger.info { "Removed role=$it from $username" }
                     }
                 }
             }
@@ -175,7 +177,7 @@ class Discord(
                 val sUserId = Snowflake(userId)
                 val userRoles = restClient.guild.getGuildMember(sServerId, sUserId).roles.map { it.value }
                 if (roleId !in userRoles) {
-                    println("$username doesn't have role $roleId to remove")
+                    logger.debug { "$username doesn't have role $roleId to remove" }
                 } else {
                     restClient.guild.deleteRoleFromGuildMember(sServerId, sUserId, sRoleId)
                 }
@@ -209,7 +211,7 @@ class Discord(
                     val userId = this.getUserId()
                     val username = usernameCache.lookup(userId)
                     val localDate = this.getLocalDate()
-                    println("Message received from $username on $localDate in (channel='$channelName', thread='$threadName')")
+                    logger.debug { "Message received from $username on $localDate in (channel='$channelName', thread='$threadName')" }
                     onMessage(Message(userId, localDate))
                 }
             }.launchIn(gateway)

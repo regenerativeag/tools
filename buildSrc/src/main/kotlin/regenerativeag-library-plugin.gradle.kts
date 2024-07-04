@@ -10,6 +10,7 @@ repositories {
 }
 
 dependencies {
+    implementation("io.github.oshai:kotlin-logging-jvm:${BuildConstants.DependencyVersions.kotlinLogging}")
     testImplementation(kotlin("test"))
 }
 

@@ -17,6 +17,8 @@ repositories {
 }
 
 dependencies {
+    implementation("org.slf4j:slf4j-simple:${BuildConstants.DependencyVersions.slf4j}")
+    implementation("io.github.oshai:kotlin-logging-jvm:${BuildConstants.DependencyVersions.kotlinLogging}")
     testImplementation(kotlin("test"))
 }
 

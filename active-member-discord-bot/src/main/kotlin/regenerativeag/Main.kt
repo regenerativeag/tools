@@ -2,9 +2,12 @@ package regenerativeag
 
 import io.ktor.client.*
 import io.ktor.client.plugins.*
+import mu.KotlinLogging
 import regenerativeag.model.ActiveMemberConfig
 import regenerativeag.tools.GlobalObjectMapper
 import java.io.File
+
+private val logger = KotlinLogging.logger { }
 
 fun main(args: Array<String>) {
     val token = System.getenv("DISCORD_API_TOKEN")
@@ -14,7 +17,7 @@ fun main(args: Array<String>) {
         println("Please provide the path to the configuration file as a single command line argument")
     } else {
         val configPath = args[0]
-        println("Config path: $configPath")
+        logger.debug { "Config path: $configPath" }
         run(token, configPath)
     }
 }
