@@ -28,6 +28,7 @@ class Discord(
     private val restClient = RestClient(KtorRequestHandler(httpClient, token = token))
     private val usernameCache = UsernameCache(restClient)
     private val channelNameCache = ChannelNameCache(restClient)
+    val roleNameCache = RoleNameCache(restClient)
 
     val postHistory = _PostHistory()
     inner class _PostHistory {
@@ -102,6 +103,7 @@ class Discord(
             val userPairs = userIds.map { it to usernameCache.lookup(it) }
             val sServerId = Snowflake(activeMemberConfig.serverId)
             val sRoleId = Snowflake(roleConfig.roleId)
+            val roleName = roleNameCache.lookup(activeMemberConfig.serverId, roleConfig.roleId)
             val roleIdxByRoleId = activeMemberConfig.roleConfigs.mapIndexed { idx, cfg ->
                 cfg.roleId to idx
             }.toMap()
@@ -111,7 +113,7 @@ class Discord(
                     val sUserId = Snowflake(userId)
                     val userRoles = restClient.guild.getGuildMember(sServerId, sUserId).roles.map { it.value }.toSet()
                     if (roleConfig.roleId in userRoles) {
-                        logger.debug { "$username already has role ${roleConfig.roleId}" }
+                        logger.debug { "$username already has role ${roleConfig.roleId} ($roleName)" }
                     } else {
                         val rolesToRemove = activeMemberConfig.roleConfigs.map { it.roleId }.toSet() - roleConfig.roleId
 
@@ -121,22 +123,27 @@ class Discord(
                                 removeActiveRole(activeMemberConfig.serverId, roleIdToRemove, userId)
                             }
                         }
+                        if (rolesToRemove.size > 1) {
+                            logger.warn("Expected at most one role to remove while adding a role to a user... Removing $rolesToRemove from $userId")
+                        }
                         restClient.guild.addRoleToGuildMember(sServerId, sUserId, sRoleId)
 
                         val currentRoleLevel = userRoles.mapNotNull { roleIdxByRoleId[it] }.maxOrNull()
                         val newRoleLevel = roleIdxByRoleId[roleConfig.roleId]!!
-                        val shouldWelcome = if (currentRoleLevel == null) {
-                            true
-                        } else {
-                            newRoleLevel > currentRoleLevel
-                        }
-                        if (shouldWelcome) {
+                        val isUpgrade = currentRoleLevel == null || newRoleLevel > currentRoleLevel
+                        if (isUpgrade) {
                             val welcomeConfig = roleConfig.welcomeMessageConfig
                             restClient.channel.createMessage(Snowflake(welcomeConfig.channel)) {
-                                this.content = welcomeConfig.prefix + "<@$userId>" + welcomeConfig.suffix
+                                this.content = welcomeConfig.createWelcomeMessage(userId)
                                 val mentions = AllowedMentionsBuilder()
                                 mentions.users.add(Snowflake(userId))
                                 this.allowedMentions = mentions
+                            }
+                        } else {
+                            val downgradeConfig = activeMemberConfig.downgradeMessageConfig
+                            val previousRoleName = concatRolesToString(activeMemberConfig, rolesToRemove)
+                            restClient.channel.createMessage(Snowflake(downgradeConfig.channel)) {
+                                this.content = downgradeConfig.createDowngradeMessage(username, previousRoleName, roleName)
                             }
                         }
                     }
@@ -155,10 +162,19 @@ class Discord(
                 if (userActiveRoles.isEmpty()) {
                     logger.debug { "$username has no active roles to remove" }
                 } else {
-                    userActiveRoles.forEach {
-                        val sRoleId = Snowflake(it)
+                    if (userActiveRoles.size > 1) {
+                        logger.warn("Expected at most one role to remove while removing all active roles from a user... Removing $userActiveRoles from $userId")
+                    }
+                    userActiveRoles.forEach { roleId ->
+                        val sRoleId = Snowflake(roleId)
                         restClient.guild.deleteRoleFromGuildMember(sServerId, sUserId, sRoleId)
-                        logger.info { "Removed role=$it from $username" }
+                        val roleName = roleNameCache.lookup(activeMemberConfig.serverId, roleId)
+                        logger.info { "Removed role $roleId ($roleName) from $username" }
+                    }
+                    val removalConfig = activeMemberConfig.removalMessageConfig
+                    val previousRoleName = concatRolesToString(activeMemberConfig, userActiveRoles)
+                    restClient.channel.createMessage(Snowflake(removalConfig.channel)) {
+                        this.content = removalConfig.createRemovalMessage(username, previousRoleName)
                     }
                 }
             }
@@ -171,29 +187,27 @@ class Discord(
          */
         private fun removeActiveRole(serverId: ServerId, roleId: RoleId, userId: UserId) {
             val username = usernameCache.lookup(userId)
+            val roleName = roleNameCache.lookup(serverId, roleId)
             val sServerId = Snowflake(serverId)
             val sRoleId = Snowflake(roleId)
             runBlocking {
                 val sUserId = Snowflake(userId)
                 val userRoles = restClient.guild.getGuildMember(sServerId, sUserId).roles.map { it.value }
                 if (roleId !in userRoles) {
-                    logger.debug { "$username doesn't have role $roleId to remove" }
+                    logger.debug { "$username doesn't have role $roleId ($roleName) to remove" }
                 } else {
                     restClient.guild.deleteRoleFromGuildMember(sServerId, sUserId, sRoleId)
                 }
             }
         }
-    }
 
-    val server = _Server()
-    inner class _Server {
-        /** Fetch all roles in the server */
-        fun fetchAllRoles(serverId: ServerId): Map<RoleId, String> {
-            val sServerId = Snowflake(serverId)
-            return runBlocking {
-                restClient.guild.getGuildRoles(sServerId).associate {
-                    it.id.value to it.name
-                }
+        /**
+         * It's possible multiple roles are being removed from the user if there was some manual intervention... or a bug
+         * ...If so, join them together into one string
+         */
+        private fun concatRolesToString(activeMemberConfig: ActiveMemberConfig, roleIds: Set<RoleId>): String {
+            return roleIds.joinToString("+") { removedRoleId ->
+                roleNameCache.lookup(activeMemberConfig.serverId, removedRoleId)
             }
         }
     }

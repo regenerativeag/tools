@@ -22,8 +22,7 @@ roleConfigs:
       minPostDays: 1
     welcomeMessageConfig:
       channel: 1162017937796911209
-      prefix: "A warm hello to our newest guest, "
-      suffix: " :relaxed: Please check out <#1240458302530519123> when you have a moment."
+      template: "A warm hello to our newest guest, USER_MENTION :relaxed: Please check out <#1240458302530519123> when you have a moment."
   # Active Member
   - roleId: 1223026651340996698
     addRoleConfig:
@@ -34,5 +33,12 @@ roleConfigs:
       minPostDays: 1
     welcomeMessageConfig:
       channel: 1223262623194153111
-      prefix: "Welcome to our community, "
-      suffix: "!"
+      template: "Welcome to our community, USER_MENTION!"
+
+downgradeMessageConfig:
+  channel: 1230667079213125702
+  template: "USERNAME has transitioned from PREVIOUS_ROLE to CURRENT_ROLE."
+
+removalMessageConfig:
+  channel: 1230667079213125702
+  template: "USERNAME has been removed from PREVIOUS_ROLE and no longer has an active role."

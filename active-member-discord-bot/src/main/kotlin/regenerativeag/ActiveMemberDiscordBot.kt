@@ -17,7 +17,6 @@ class ActiveMemberDiscordBot(
 ) {
     private val logger = KotlinLogging.logger {  }
     private val lock = object { }
-    private val roleNameByRoleId = discord.server.fetchAllRoles(activeMemberConfig.serverId)
 
     fun login() {
         Reloader().cleanReload()
@@ -42,7 +41,8 @@ class ActiveMemberDiscordBot(
             for (roleConfig in activeMemberConfig.roleConfigs.reversed()) {
                 val meetsThreshold = meetsThreshold(roleConfig, postDays, LocalDate.now())
                 if (meetsThreshold) {
-                    logger.debug { "(Re)adding ${roleNameByRoleId[roleConfig.roleId]} for \"${message.userId}\"." }
+                    val roleName = discord.roleNameCache.lookup(activeMemberConfig.serverId, roleConfig.roleId)
+                    logger.debug { "(Re)adding $roleName for \"${message.userId}\"." }
                     discord.users.addActiveRole(activeMemberConfig, roleConfig, setOf(message.userId))
                     break
                 }
@@ -126,18 +126,18 @@ class ActiveMemberDiscordBot(
 
         /** Ensure that the role identified by [roleConfig] includes exactly the members in [computedMemberIds] */
         private fun updateRoleMembers(computedMemberIds: Set<UserId>, roleConfig: ActiveMemberConfig.RoleConfig) {
-            val roleName = roleNameByRoleId[roleConfig.roleId]
-            fun print(prefix: String, userIds: Set<UserId>) {
+            val roleName = discord.roleNameCache.lookup(activeMemberConfig.serverId, roleConfig.roleId)
+            fun log(prefix: String, userIds: Set<UserId>) {
                 logger.debug { "$prefix $roleName (${userIds.size}): ${discord.users.mapUserIdsToNames(userIds).sorted()}" }
             }
 
-            print("Computed members in", computedMemberIds)
+            log("Computed members in", computedMemberIds)
 
             val currentMemberIds = discord.users.getUsersWithRole(activeMemberConfig.serverId, roleConfig.roleId)
-            print("Current members in", currentMemberIds)
+            log("Current members in", currentMemberIds)
 
             val userIdsToAdd = computedMemberIds - currentMemberIds
-            print("New members to add to", userIdsToAdd)
+            log("New members to add to", userIdsToAdd)
             val retainedUserIdsToAdd = discord.users.filterToUsersCurrentlyInGuild(
                 activeMemberConfig.serverId,
                 userIdsToAdd
