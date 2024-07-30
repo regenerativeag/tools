@@ -31,6 +31,12 @@ class Database() {
         }
     }
 
+    fun getPostHistory(): Map<UserId, Set<LocalDate>> {
+        synchronized(lock) {
+            return postHistory.toMap()
+        }
+    }
+
     companion object {
         data class AddPostResult(val isFirstPostOfDay: Boolean, val postDays: Set<LocalDate>)
     }
