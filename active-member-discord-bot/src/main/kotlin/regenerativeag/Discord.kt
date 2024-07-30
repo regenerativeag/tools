@@ -23,6 +23,7 @@ import java.time.LocalDate
 class Discord(
     httpClient: HttpClient,
     private val token: String,
+    private val dryRun: Boolean,
 ) {
     private val logger = KotlinLogging.logger { }
     private val restClient = RestClient(KtorRequestHandler(httpClient, token = token))
@@ -126,25 +127,26 @@ class Discord(
                         if (rolesToRemove.size > 1) {
                             logger.warn("Expected at most one role to remove while adding a role to a user... Removing $rolesToRemove from $userId")
                         }
-                        restClient.guild.addRoleToGuildMember(sServerId, sUserId, sRoleId)
+
+                        if (dryRun) {
+                            logger.info("Dry run... would have added role=$roleName to $username")
+                        } else {
+                            restClient.guild.addRoleToGuildMember(sServerId, sUserId, sRoleId)
+                            logger.info("Added role $roleName to $username")
+                        }
 
                         val currentRoleLevel = userRoles.mapNotNull { roleIdxByRoleId[it] }.maxOrNull()
                         val newRoleLevel = roleIdxByRoleId[roleConfig.roleId]!!
                         val isUpgrade = currentRoleLevel == null || newRoleLevel > currentRoleLevel
                         if (isUpgrade) {
                             val welcomeConfig = roleConfig.welcomeMessageConfig
-                            restClient.channel.createMessage(Snowflake(welcomeConfig.channel)) {
-                                this.content = welcomeConfig.createWelcomeMessage(userId)
-                                val mentions = AllowedMentionsBuilder()
-                                mentions.users.add(Snowflake(userId))
-                                this.allowedMentions = mentions
-                            }
+                            val welcomeMessage = welcomeConfig.createWelcomeMessage(userId)
+                            rooms.postMessage(welcomeMessage, welcomeConfig.channel, listOf(userId))
                         } else {
                             val downgradeConfig = activeMemberConfig.downgradeMessageConfig
                             val previousRoleName = concatRolesToString(activeMemberConfig, rolesToRemove)
-                            restClient.channel.createMessage(Snowflake(downgradeConfig.channel)) {
-                                this.content = downgradeConfig.createDowngradeMessage(username, previousRoleName, roleName)
-                            }
+                            val downgradeMessage = downgradeConfig.createDowngradeMessage(username, previousRoleName, roleName)
+                            rooms.postMessage(downgradeMessage, downgradeConfig.channel)
                         }
                     }
                 }
@@ -166,16 +168,12 @@ class Discord(
                         logger.warn("Expected at most one role to remove while removing all active roles from a user... Removing $userActiveRoles from $userId")
                     }
                     userActiveRoles.forEach { roleId ->
-                        val sRoleId = Snowflake(roleId)
-                        restClient.guild.deleteRoleFromGuildMember(sServerId, sUserId, sRoleId)
-                        val roleName = roleNameCache.lookup(activeMemberConfig.serverId, roleId)
-                        logger.info { "Removed role $roleId ($roleName) from $username" }
+                       removeActiveRole(activeMemberConfig.serverId, roleId, userId)
                     }
                     val removalConfig = activeMemberConfig.removalMessageConfig
                     val previousRoleName = concatRolesToString(activeMemberConfig, userActiveRoles)
-                    restClient.channel.createMessage(Snowflake(removalConfig.channel)) {
-                        this.content = removalConfig.createRemovalMessage(username, previousRoleName)
-                    }
+                    val message = removalConfig.createRemovalMessage(username, previousRoleName)
+                    rooms.postMessage(message, removalConfig.channel)
                 }
             }
         }
@@ -196,7 +194,12 @@ class Discord(
                 if (roleId !in userRoles) {
                     logger.debug { "$username doesn't have role $roleId ($roleName) to remove" }
                 } else {
-                    restClient.guild.deleteRoleFromGuildMember(sServerId, sUserId, sRoleId)
+                    if (dryRun) {
+                        logger.info("Dry run... would have removed $roleName from $username")
+                    } else {
+                        restClient.guild.deleteRoleFromGuildMember(sServerId, sUserId, sRoleId)
+                        logger.info("Removed $roleName from $username")
+                    }
                 }
             }
         }
@@ -212,6 +215,27 @@ class Discord(
         }
     }
 
+    val rooms = _Rooms()
+    inner class _Rooms() {
+        fun postMessage(message: String, channelId: ChannelId, usersMentioned: List<UserId> = listOf()) {
+            if (dryRun) {
+                val channelName = channelNameCache.lookup(channelId)
+                logger.info { "Dry run... would have posted: \"$message\" in $channelName."}
+            } else {
+                runBlocking {
+                    restClient.channel.createMessage(Snowflake(channelId)) {
+                        this.content = message
+                        this.allowedMentions = AllowedMentionsBuilder().also { builder ->
+                            usersMentioned.forEach { userId ->
+                                builder.users.add(Snowflake(userId))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     val bot = _Bot()
     inner class _Bot {
         /** Log the bot into discord and call the callback whenever a message is received */
@@ -221,11 +245,10 @@ class Discord(
             gateway.events.filterIsInstance<MessageCreate>().onEach { messageCreate ->
                 with(messageCreate.message) {
                     val channelName = channelNameCache.lookup(this.channelId.value)
-                    val threadName = this.thread.value?.name
                     val userId = this.getUserId()
                     val username = usernameCache.lookup(userId)
                     val localDate = this.getLocalDate()
-                    logger.debug { "Message received from $username on $localDate in (channel='$channelName', thread='$threadName')" }
+                    logger.debug { "Message received from $username on $localDate in $channelName" }
                     onMessage(Message(userId, localDate))
                 }
             }.launchIn(gateway)

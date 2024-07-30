@@ -13,5 +13,7 @@ dependencies {
     implementation("dev.kord:kord-rest:${BuildConstants.DependencyVersions.kord}")
     implementation("dev.kord:kord-gateway:${BuildConstants.DependencyVersions.kord}")
 
+    implementation("com.github.ajalt.clikt:clikt:${BuildConstants.DependencyVersions.clikt}")
+
     testImplementation("org.junit.jupiter:junit-jupiter-params:${BuildConstants.TestDependencyVersions.junit}")
 }

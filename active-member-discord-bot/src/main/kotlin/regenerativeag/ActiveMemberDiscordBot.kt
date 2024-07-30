@@ -144,7 +144,7 @@ class ActiveMemberDiscordBot(
             )
             val usersWhoLeftButMetThreshold = userIdsToAdd - retainedUserIdsToAdd
             departedUserIds.addAll(usersWhoLeftButMetThreshold)
-            discord.users.addActiveRole(activeMemberConfig, roleConfig, userIdsToAdd)
+            discord.users.addActiveRole(activeMemberConfig, roleConfig, retainedUserIdsToAdd)
 
             memberIdsWhoHadARoleBeforeRunning.addAll(currentMemberIds)
             memberIdsWhoHaveARoleAfterRunning.addAll(computedMemberIds)

@@ -11,6 +11,7 @@ object BuildConstants {
         val kotlinCoroutinesCore = "1.8.0"
         val kord = "0.13.1"
         val jackson = "2.17.1"
+        val clikt = "4.4.0"
     }
 
     object TestDependencyVersions {
