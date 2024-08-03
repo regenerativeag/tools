@@ -1,7 +1,7 @@
 package regenerativeag.model
 
 data class ActiveMemberConfig(
-    val serverId: ServerId, // aka "guild id"
+    val guildId: GuildId, // aka "guild id"
     val excludedUserIds: Set<UserId>, // bots
     val roleConfigs: List<RoleConfig>,
     val downgradeMessageConfig: DowngradeMessageConfig,

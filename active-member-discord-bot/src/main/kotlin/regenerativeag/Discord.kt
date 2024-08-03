@@ -37,7 +37,7 @@ class Discord(
         fun fetch(activeMemberConfig: ActiveMemberConfig, today: LocalDate): PostHistory {
             val fetcher = PostHistoryFetcher(
                 restClient,
-                activeMemberConfig.serverId,
+                activeMemberConfig.guildId,
                 activeMemberConfig.maxWindowSize,
                 today,
                 channelNameCache
@@ -102,9 +102,9 @@ class Discord(
          */
         fun addActiveRole(activeMemberConfig: ActiveMemberConfig, roleConfig: ActiveMemberConfig.RoleConfig, userIds: Set<UserId>, ) {
             val userPairs = userIds.map { it to usernameCache.lookup(it) }
-            val sServerId = Snowflake(activeMemberConfig.serverId)
+            val sServerId = Snowflake(activeMemberConfig.guildId)
             val sRoleId = Snowflake(roleConfig.roleId)
-            val roleName = roleNameCache.lookup(activeMemberConfig.serverId, roleConfig.roleId)
+            val roleName = roleNameCache.lookup(activeMemberConfig.guildId, roleConfig.roleId)
             val roleIdxByRoleId = activeMemberConfig.roleConfigs.mapIndexed { idx, cfg ->
                 cfg.roleId to idx
             }.toMap()
@@ -121,7 +121,7 @@ class Discord(
                         // TODO: Parallelize requests - https://github.com/regenerativeag/tools/issues/1
                         rolesToRemove.forEach { roleIdToRemove ->
                             if (roleIdToRemove in userRoles) {
-                                removeActiveRole(activeMemberConfig.serverId, roleIdToRemove, userId)
+                                removeActiveRole(activeMemberConfig.guildId, roleIdToRemove, userId)
                             }
                         }
                         if (rolesToRemove.size > 1) {
@@ -155,7 +155,7 @@ class Discord(
 
         fun removeAllActiveRolesFromUser(activeMemberConfig: ActiveMemberConfig, userId: UserId) {
             val username = usernameCache.lookup(userId)
-            val sServerId = Snowflake(activeMemberConfig.serverId)
+            val sServerId = Snowflake(activeMemberConfig.guildId)
             runBlocking {
                 val sUserId = Snowflake(userId)
                 val userRoles = restClient.guild.getGuildMember(sServerId, sUserId).roles.map { it.value }.toSet()
@@ -168,7 +168,7 @@ class Discord(
                         logger.warn("Expected at most one role to remove while removing all active roles from a user... Removing $userActiveRoles from $userId")
                     }
                     userActiveRoles.forEach { roleId ->
-                       removeActiveRole(activeMemberConfig.serverId, roleId, userId)
+                       removeActiveRole(activeMemberConfig.guildId, roleId, userId)
                     }
                     val removalConfig = activeMemberConfig.removalMessageConfig
                     val previousRoleName = concatRolesToString(activeMemberConfig, userActiveRoles)
@@ -183,10 +183,10 @@ class Discord(
          *  - use [addActiveRole] to transition users between roles
          *  - use [removeAllActiveRolesFromUser] to remove all active roles from a user
          */
-        private fun removeActiveRole(serverId: ServerId, roleId: RoleId, userId: UserId) {
+        private fun removeActiveRole(guildId: GuildId, roleId: RoleId, userId: UserId) {
             val username = usernameCache.lookup(userId)
-            val roleName = roleNameCache.lookup(serverId, roleId)
-            val sServerId = Snowflake(serverId)
+            val roleName = roleNameCache.lookup(guildId, roleId)
+            val sServerId = Snowflake(guildId)
             val sRoleId = Snowflake(roleId)
             runBlocking {
                 val sUserId = Snowflake(userId)
@@ -210,7 +210,7 @@ class Discord(
          */
         private fun concatRolesToString(activeMemberConfig: ActiveMemberConfig, roleIds: Set<RoleId>): String {
             return roleIds.joinToString("+") { removedRoleId ->
-                roleNameCache.lookup(activeMemberConfig.serverId, removedRoleId)
+                roleNameCache.lookup(activeMemberConfig.guildId, removedRoleId)
             }
         }
     }

@@ -1,3 +1,3 @@
 package regenerativeag.model
 
-typealias ServerId = ULong
+typealias GuildId = ULong
