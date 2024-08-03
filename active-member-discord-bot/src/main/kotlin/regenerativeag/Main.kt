@@ -19,24 +19,23 @@ import java.io.File
 class Main : CliktCommand() {
     private val logger = KotlinLogging.logger { }
 
-    val configPath: String by argument()
+    private val configPath: String by argument()
         .help("path to the configuration file")
 
-    val dryRun: Boolean by option()
+    private val dryRun: Boolean by option()
         .boolean()
         .default(true)
         .help("set to false in order for changes to take effect")
 
-    val discordApiToken: String by option(envvar="DISCORD_API_TOKEN")
+    private val discordApiToken: String by option(envvar="DISCORD_API_TOKEN")
         .required()
 
     override fun run() {
         logger.info("Launching with configPath=$configPath, dryRun=$dryRun, discordApiToken=<omitted>")
         val httpClient = createHttpClient()
-        val discord = Discord(httpClient, discordApiToken, dryRun)
         val database = Database()
         val config = GlobalObjectMapper.readValue(File(configPath), ActiveMemberConfig::class.java)
-        val bot = ActiveMemberDiscordBot(database, discord, config)
+        val bot = ActiveMemberDiscordBot(httpClient, discordApiToken, dryRun, database, config)
         bot.login()
     }
 
