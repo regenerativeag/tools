@@ -2,7 +2,6 @@ package regenerativeag.discord.client
 
 import dev.kord.common.entity.Snowflake
 import regenerativeag.Discord
-import regenerativeag.model.ActiveMemberConfig
 
 open class DiscordClient(
     protected val discord: Discord,
