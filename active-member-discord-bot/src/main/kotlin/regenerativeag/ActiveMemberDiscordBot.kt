@@ -1,5 +1,6 @@
 package regenerativeag
 
+import io.ktor.client.*
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
@@ -11,12 +12,16 @@ import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 
 class ActiveMemberDiscordBot(
+    httpClient: HttpClient,
+    discordApiToken: String,
+    dryRun: Boolean,
     private val database: Database,
-    private val discord: Discord,
     private val activeMemberConfig: ActiveMemberConfig,
 ) {
     private val logger = KotlinLogging.logger {  }
     private val lock = object { }
+    private val discord = Discord(httpClient, activeMemberConfig, discordApiToken, dryRun)
+
 
     fun login() {
         Reloader().cleanReload()
@@ -41,9 +46,9 @@ class ActiveMemberDiscordBot(
             for (roleConfig in activeMemberConfig.roleConfigs.reversed()) {
                 val meetsThreshold = meetsThreshold(roleConfig, postDays, LocalDate.now())
                 if (meetsThreshold) {
-                    val roleName = discord.roleNameCache.lookup(activeMemberConfig.serverId, roleConfig.roleId)
+                    val roleName = discord.roleNameCache.lookup(activeMemberConfig.guildId, roleConfig.roleId)
                     logger.debug { "(Re)adding $roleName for \"${message.userId}\"." }
-                    discord.users.addActiveRole(activeMemberConfig, roleConfig, setOf(message.userId))
+                    discord.users.addActiveRole(roleConfig, setOf(message.userId))
                     break
                 }
             }
@@ -85,10 +90,7 @@ class ActiveMemberDiscordBot(
             logger.debug { "Reloading" }
 
             val today = LocalDate.now()
-            val postHistory = discord.postHistory.fetch(
-                activeMemberConfig,
-                today,
-            )
+            val postHistory = discord.postHistory.fetch(today)
 
             synchronized(lock) {
                 logger.debug { "Overwriting post history: $postHistory" }
@@ -120,31 +122,30 @@ class ActiveMemberDiscordBot(
             val inactiveMemberIds = memberIdsWhoHadARoleBeforeRunning - memberIdsWhoHaveARoleAfterRunning
             logger.debug { "Members who no longer meet a threshold: ${discord.users.mapUserIdsToNames(inactiveMemberIds)}" }
             inactiveMemberIds.forEach { inactiveMemberId ->
-                discord.users.removeAllActiveRolesFromUser(activeMemberConfig, inactiveMemberId)
+                discord.users.removeAllActiveRolesFromUser(inactiveMemberId)
             }
         }
 
         /** Ensure that the role identified by [roleConfig] includes exactly the members in [computedMemberIds] */
         private fun updateRoleMembers(computedMemberIds: Set<UserId>, roleConfig: ActiveMemberConfig.RoleConfig) {
-            val roleName = discord.roleNameCache.lookup(activeMemberConfig.serverId, roleConfig.roleId)
+            val roleName = discord.roleNameCache.lookup(activeMemberConfig.guildId, roleConfig.roleId)
             fun log(prefix: String, userIds: Set<UserId>) {
                 logger.debug { "$prefix $roleName (${userIds.size}): ${discord.users.mapUserIdsToNames(userIds).sorted()}" }
             }
 
             log("Computed members in", computedMemberIds)
 
-            val currentMemberIds = discord.users.getUsersWithRole(activeMemberConfig.serverId, roleConfig.roleId)
+            val currentMemberIds = discord.users.getUsersWithRole(roleConfig.roleId)
             log("Current members in", currentMemberIds)
 
             val userIdsToAdd = computedMemberIds - currentMemberIds
             log("New members to add to", userIdsToAdd)
             val retainedUserIdsToAdd = discord.users.filterToUsersCurrentlyInGuild(
-                activeMemberConfig.serverId,
                 userIdsToAdd
             )
             val usersWhoLeftButMetThreshold = userIdsToAdd - retainedUserIdsToAdd
             departedUserIds.addAll(usersWhoLeftButMetThreshold)
-            discord.users.addActiveRole(activeMemberConfig, roleConfig, retainedUserIdsToAdd)
+            discord.users.addActiveRole(roleConfig, retainedUserIdsToAdd)
 
             memberIdsWhoHadARoleBeforeRunning.addAll(currentMemberIds)
             memberIdsWhoHaveARoleAfterRunning.addAll(computedMemberIds)

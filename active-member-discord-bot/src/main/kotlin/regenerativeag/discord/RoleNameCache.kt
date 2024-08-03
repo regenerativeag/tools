@@ -4,24 +4,24 @@ import dev.kord.common.entity.Snowflake
 import dev.kord.rest.service.RestClient
 import kotlinx.coroutines.runBlocking
 import regenerativeag.model.RoleId
-import regenerativeag.model.ServerId
+import regenerativeag.model.GuildId
 
 class RoleNameCache(
     private val restClient: RestClient,
 ) {
     private val cache = mutableMapOf<RoleId, String>()
-    private val seenServerIds = mutableSetOf<ServerId>()
+    private val seenGuildIds = mutableSetOf<GuildId>()
 
-    fun lookup(serverId: ServerId, roleId: RoleId): String {
+    fun lookup(guildId: GuildId, roleId: RoleId): String {
         return synchronized(cache) {
-            if (serverId !in seenServerIds) {
+            if (guildId !in seenGuildIds) {
                 val roleNameByRoleId = runBlocking {
-                    restClient.guild.getGuildRoles(Snowflake(serverId)).associate {
+                    restClient.guild.getGuildRoles(Snowflake(guildId)).associate {
                         it.id.value to it.name
                     }
                 }
                 cache.putAll(roleNameByRoleId)
-                seenServerIds.add(serverId)
+                seenGuildIds.add(guildId)
             }
             cache[roleId]!!
         }
