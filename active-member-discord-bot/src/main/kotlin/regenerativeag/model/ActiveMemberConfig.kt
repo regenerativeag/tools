@@ -5,7 +5,6 @@ data class ActiveMemberConfig(
     val excludedUserIds: Set<UserId>, // bots
     val roleConfigs: List<RoleConfig>,
     val downgradeMessageConfig: DowngradeMessageConfig,
-    val removalMessageConfig: RemovalMessageConfig,
 ) {
     val maxWindowSize: Int = roleConfigs.flatMap {
             listOf(it.keepRoleConfig.windowSize, it.addRoleConfig.windowSize)
@@ -33,28 +32,16 @@ data class ActiveMemberConfig(
     data class DowngradeMessageConfig(
         val channel: ChannelId,
         val template: String,
+        val noRoleName: String = "(no role)",
         val usernamePlaceholder: String = "USERNAME",
         val previousRolePlaceholder: String = "PREVIOUS_ROLE",
         val currentRolePlaceholder: String = "CURRENT_ROLE",
     ) {
-        fun createDowngradeMessage(username: String, previousRoleName: String, currentRoleName: String): String {
+        fun createDowngradeMessage(username: String, previousRoleName: String?, currentRoleName: String?): String {
             return template
                 .replace(usernamePlaceholder, username)
-                .replace(previousRolePlaceholder, previousRoleName)
-                .replace(currentRolePlaceholder, currentRoleName)
-        }
-    }
-
-    data class RemovalMessageConfig(
-        val channel: ChannelId,
-        val template: String,
-        val usernamePlaceholder: String = "USERNAME",
-        val previousRolePlaceholder: String = "PREVIOUS_ROLE"
-    ) {
-        fun createRemovalMessage(username: String, previousRoleName: String): String {
-            return template
-                .replace(usernamePlaceholder, username)
-                .replace(previousRolePlaceholder, previousRoleName)
+                .replace(previousRolePlaceholder, previousRoleName ?: noRoleName)
+                .replace(currentRolePlaceholder, currentRoleName ?: noRoleName)
         }
     }
 }

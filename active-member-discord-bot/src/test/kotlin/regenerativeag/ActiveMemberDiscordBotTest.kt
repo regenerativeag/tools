@@ -53,7 +53,6 @@ class ActiveMemberDiscordBotTest {
                         )
                     ),
                     ActiveMemberConfig.DowngradeMessageConfig(0uL, "template"),
-                    ActiveMemberConfig.RemovalMessageConfig(0uL, "template",)
             )
     ) {
         EMPTY(),

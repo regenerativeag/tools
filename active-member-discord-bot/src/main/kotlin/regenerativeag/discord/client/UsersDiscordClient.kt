@@ -95,7 +95,7 @@ class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
                     logger.warn("Expected at most one role to remove while removing all active roles from a user... Removing $currentMembershipRoleIds from $userId")
                 }
                 deleteRolesFromGuildMember(userId, currentMembershipRoleIds)
-                postRemovalMessage(userId, currentMembershipRoleIds)
+                postDowngradeMessage(userId, currentMembershipRoleIds, null)
             }
         }
     }
@@ -137,17 +137,7 @@ class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
         roleIds.forEach { deleteRoleFromGuildMember(userId, it) }
     }
 
-    /**
-     * It's possible multiple roles are being removed from the user if there was some manual intervention... or a bug
-     * ...If so, join them together into one string
-     */
-    private fun concatRolesToString(roleIds: Iterable<RoleId>): String {
-        return roleIds.joinToString("+") { removedRoleId ->
-            roleNameCache.lookup(guildId, removedRoleId)
-        }
-    }
-
-    private fun postUpgradeOrDowngradeMessage(userId: UserId, previousRoleIds: Iterable<RoleId>, newRoleConfig: ActiveMemberConfig.RoleConfig) {
+    private fun postUpgradeOrDowngradeMessage(userId: UserId, previousRoleIds: Collection<RoleId>, newRoleConfig: ActiveMemberConfig.RoleConfig) {
         val newRoleId = newRoleConfig.roleId
 
         val roleIdxByRoleId = activeMemberConfig.roleConfigs.mapIndexed { idx, cfg -> cfg.roleId to idx }.toMap()
@@ -160,20 +150,30 @@ class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
             val welcomeMessage = welcomeConfig.createWelcomeMessage(userId)
             discord.rooms.postMessage(welcomeMessage, welcomeConfig.channel, listOf(userId))
         } else {
-            val username = usernameCache.lookup(newRoleId)
-            val newRoleName = roleNameCache.lookup(guildId, newRoleId)
-            val downgradeConfig = activeMemberConfig.downgradeMessageConfig
-            val previousRoleName = concatRolesToString(previousRoleIds)
-            val downgradeMessage = downgradeConfig.createDowngradeMessage(username, previousRoleName, newRoleName)
-            discord.rooms.postMessage(downgradeMessage, downgradeConfig.channel)
+            postDowngradeMessage(userId, previousRoleIds, newRoleId)
         }
     }
 
-    private fun postRemovalMessage(userId: UserId, previousRoleIds: Iterable<RoleId>) {
+    private fun postDowngradeMessage(userId: UserId, previousRoleIds: Collection<RoleId>, newRoleId: RoleId?) {
         val username = usernameCache.lookup(userId)
-        val removalConfig = activeMemberConfig.removalMessageConfig
+        val newRoleName = newRoleId?.let { roleNameCache.lookup(guildId, newRoleId) }
+        val downgradeConfig = activeMemberConfig.downgradeMessageConfig
         val previousRoleName = concatRolesToString(previousRoleIds)
-        val message = removalConfig.createRemovalMessage(username, previousRoleName)
-        discord.rooms.postMessage(message, removalConfig.channel)
+        val downgradeMessage = downgradeConfig.createDowngradeMessage(username, previousRoleName, newRoleName)
+        discord.rooms.postMessage(downgradeMessage, downgradeConfig.channel)
+    }
+
+    /**
+     * It's possible multiple roles are being removed from the user if there was some manual intervention... or a bug
+     * ...If so, join them together into one string
+     */
+    private fun concatRolesToString(roleIds: Collection<RoleId>): String? {
+        return if (roleIds.isEmpty()) {
+            null
+        } else {
+            roleIds.joinToString("+") { removedRoleId ->
+                roleNameCache.lookup(guildId, removedRoleId)
+            }
+        }
     }
 }
