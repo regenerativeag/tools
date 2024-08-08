@@ -7,13 +7,18 @@ plugins {
 dependencies {
     implementation(project(":json-lib"))
 
-    runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:${BuildConstants.DependencyVersions.kotlinCoroutinesCore}")
+    with(BuildConstants.DependencyVersions) {
+        runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesCore")
 
-    implementation("dev.kord:kord-core:${BuildConstants.DependencyVersions.kord}")
-    implementation("dev.kord:kord-rest:${BuildConstants.DependencyVersions.kord}")
-    implementation("dev.kord:kord-gateway:${BuildConstants.DependencyVersions.kord}")
+        implementation("dev.kord:kord-core:$kord")
+        implementation("dev.kord:kord-rest:$kord")
+        implementation("dev.kord:kord-gateway:$kord")
 
-    implementation("com.github.ajalt.clikt:clikt:${BuildConstants.DependencyVersions.clikt}")
+        implementation("com.github.ajalt.clikt:clikt:$clikt")
+    }
 
-    testImplementation("org.junit.jupiter:junit-jupiter-params:${BuildConstants.TestDependencyVersions.junit}")
+    with(BuildConstants.TestDependencyVersions) {
+        testImplementation("org.junit.jupiter:junit-jupiter-params:$junit")
+        testImplementation("io.mockk:mockk:$mockk")
+    }
 }

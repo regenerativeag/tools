@@ -2,7 +2,7 @@
 
 # You can use this config as a template to create your own.
 
-serverId: 1162017936656044042
+guildId: 1162017936656044042
 
 excludedUserIds:
   - 1221517195931156530 # Active Member Bot (Larry)

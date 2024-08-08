@@ -28,7 +28,6 @@ data class ActiveMemberConfig(
         }
     }
 
-
     data class DowngradeMessageConfig(
         val channel: ChannelId,
         val template: String,

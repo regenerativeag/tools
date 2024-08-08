@@ -12,14 +12,17 @@ import regenerativeag.discord.client.RoomsDiscordClient
 import regenerativeag.discord.client.UsersDiscordClient
 import regenerativeag.model.ActiveMemberConfig
 
-/** A discord client for a given [ActiveMemberConfig] */
-class Discord(
+/**
+ * A discord client for a given [ActiveMemberConfig]
+ * This class is `open` for tests due to a bug in mockk which prevents us from mocking functions that accept lambdas: https://github.com/mockk/mockk/issues/944
+ */
+open class Discord(
     httpClient: HttpClient,
     val activeMemberConfig: ActiveMemberConfig,
     token: String,
     val dryRun: Boolean,
+    val restClient: RestClient = RestClient(KtorRequestHandler(httpClient, token = token)),
 ) {
-    internal val restClient = RestClient(KtorRequestHandler(httpClient, token = token))
 
     val usernameCache = UsernameCache(restClient)
     val channelNameCache = ChannelNameCache(restClient)
@@ -27,6 +30,6 @@ class Discord(
 
     val postHistory = PostHistoryDiscordClient(this)
     val users = UsersDiscordClient(this)
-    val rooms = RoomsDiscordClient(this)
+    open val rooms = RoomsDiscordClient(this)
     val bot = BotDiscordClient(this, token)
 }
