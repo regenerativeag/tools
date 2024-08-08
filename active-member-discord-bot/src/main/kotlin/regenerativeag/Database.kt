@@ -1,10 +1,10 @@
 package regenerativeag
 
+import regenerativeag.discord.model.UserId
 import regenerativeag.model.PostHistory
-import regenerativeag.model.UserId
 import java.time.LocalDate
 
-class Database() {
+class Database {
     private val postHistory = mutableMapOf<UserId, MutableSet<LocalDate>>()
     private val lock = object { }
 

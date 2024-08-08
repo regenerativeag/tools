@@ -3,6 +3,7 @@ package regenerativeag
 import regenerativeag.model.*
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import regenerativeag.discord.model.UserId
 import java.time.LocalDate
 import kotlin.test.assertEquals
 

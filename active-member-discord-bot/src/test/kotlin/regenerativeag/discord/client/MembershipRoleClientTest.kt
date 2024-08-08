@@ -11,7 +11,11 @@ import io.ktor.client.*
 import io.mockk.*
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
-import regenerativeag.Discord
+import regenerativeag.MembershipRoleClient
+import regenerativeag.discord.Discord
+import regenerativeag.discord.model.ChannelId
+import regenerativeag.discord.model.RoleId
+import regenerativeag.discord.model.UserId
 import regenerativeag.model.*
 import regenerativeag.tools.GlobalObjectMapper
 import java.io.File
@@ -19,7 +23,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 
-class UsersDiscordClientTest {
+class MembershipRoleClientTest {
 
     data class Message(val text: String, val channelId: ChannelId)
 
@@ -55,13 +59,14 @@ class UsersDiscordClientTest {
 
     private val capturedMessages = mutableListOf<Message>()
     private val restClient = mockk<RestClient>()
-    private val discord = object : Discord(mockk<HttpClient>(), config,"test_token", false, restClient) {
+    private val discord = object : Discord(mockk<HttpClient>(), config.guildId,"test_token", false, restClient) {
         override val rooms = object : RoomsDiscordClient(this) {
             override fun postMessage(message: String, channelId: ChannelId, usersMentioned: List<UserId>) {
                 capturedMessages.add(Message(message, channelId))
             }
         }
     }
+    private val membershipRoleClient = MembershipRoleClient(discord, config)
 
 
     @ParameterizedTest
@@ -72,7 +77,7 @@ class UsersDiscordClientTest {
         if (case.newRoleId != null) {
             // add/replace a role
             val roleConfig = config.roleConfigs.single { it.roleId == case.newRoleId }
-            discord.users.addActiveRole(roleConfig, setOf(case.userId))
+            membershipRoleClient.addMembershipRoleToUsers(roleConfig, setOf(case.userId))
             val alreadyHasRole = case.newRoleId in case.currentRoleIds
             if (alreadyHasRole) {
                 assertDeletedRoleIdsFromUser(case.userId, listOf())
@@ -83,7 +88,7 @@ class UsersDiscordClientTest {
             }
         } else {
             // remove all roles
-            discord.users.removeAllActiveRolesFromUser(case.userId)
+            membershipRoleClient.removeMembershipRolesFromUsers(setOf(case.userId))
             assertDeletedRoleIdsFromUser(case.userId, case.currentRoleIds)
             assertNoRoleIdAdded(case.userId)
         }
@@ -163,6 +168,7 @@ class UsersDiscordClientTest {
         val actualMessage = if (expectedMessage != null) {
             capturedMessages.single()
         } else {
+            capturedMessages.also { println(it) }
             assertTrue(capturedMessages.isEmpty())
             null
         }
