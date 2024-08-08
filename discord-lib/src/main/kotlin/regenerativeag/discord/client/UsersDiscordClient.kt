@@ -86,7 +86,7 @@ class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
 
     private suspend fun addRoleToGuildMember(userId: UserId, roleId: RoleId) {
         val username = usernameCache.lookup(userId)
-        val roleName = roleNameCache.lookup(guildId, roleId)
+        val roleName = roleNameCache.lookup(roleId)
         if (dryRun) {
             logger.info("Dry run... would have added role=$roleName to $username")
         } else {
@@ -97,7 +97,7 @@ class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
 
     private suspend fun deleteRoleFromGuildMember(userId: UserId, roleId: RoleId) {
         val username = usernameCache.lookup(userId)
-        val roleName = roleNameCache.lookup(guildId, roleId)
+        val roleName = roleNameCache.lookup(roleId)
         if (dryRun) {
             logger.info("Dry run... would have removed $roleName from $username")
         } else {

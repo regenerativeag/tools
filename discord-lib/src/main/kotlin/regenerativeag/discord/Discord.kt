@@ -21,7 +21,7 @@ open class Discord(
 
     val usernameCache = UsernameCache(restClient)
     val channelNameCache = ChannelNameCache(restClient)
-    val roleNameCache = RoleNameCache(restClient)
+    val roleNameCache = RoleNameCache(restClient, guildId)
 
     val guild = GuildDiscordClient(this)
     val users = UsersDiscordClient(this)

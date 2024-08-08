@@ -48,7 +48,7 @@ class ActiveMemberDiscordBot(
             for (roleConfig in activeMemberConfig.roleConfigs.reversed()) {
                 val meetsThreshold = meetsThreshold(roleConfig, postDays, LocalDate.now())
                 if (meetsThreshold) {
-                    val roleName = discord.roleNameCache.lookup(activeMemberConfig.guildId, roleConfig.roleId)
+                    val roleName = discord.roleNameCache.lookup(roleConfig.roleId)
                     logger.debug { "(Re)adding $roleName for \"${message.userId}\"." }
                     membershipRoleClient.addMembershipRoleToUsers(roleConfig, setOf(message.userId))
                     break
@@ -155,7 +155,7 @@ class ActiveMemberDiscordBot(
 
         /** Ensure that the role identified by [roleConfig] includes exactly the members in [computedMemberIds] */
         private fun updateRoleMembers(computedMemberIds: Set<UserId>, roleConfig: ActiveMemberConfig.RoleConfig) {
-            val roleName = discord.roleNameCache.lookup(activeMemberConfig.guildId, roleConfig.roleId)
+            val roleName = discord.roleNameCache.lookup(roleConfig.roleId)
             fun log(prefix: String, userIds: Set<UserId>) {
                 logger.debug { "$prefix $roleName (${userIds.size}): ${discord.users.mapUserIdsToNames(userIds).sorted()}" }
             }

@@ -23,7 +23,7 @@ class MembershipRoleClient(
     fun addMembershipRoleToUsers(roleConfig: ActiveMemberConfig.RoleConfig, userIds: Set<UserId>) {
         val roleId = roleConfig.roleId
         val userPairs = userIds.map { it to usernameCache.lookup(it) }
-        val roleName = roleNameCache.lookup(guildId, roleId)
+        val roleName = roleNameCache.lookup(roleId)
 
         runBlocking {
             // TODO: Parallelize requests - https://github.com/regenerativeag/tools/issues/1
@@ -83,7 +83,7 @@ class MembershipRoleClient(
 
     private fun postDowngradeMessage(userId: UserId, previousRoleIds: Collection<RoleId>, newRoleId: RoleId?) {
         val username = usernameCache.lookup(userId)
-        val newRoleName = newRoleId?.let { roleNameCache.lookup(guildId, newRoleId) }
+        val newRoleName = newRoleId?.let { roleNameCache.lookup(newRoleId) }
         val downgradeConfig = activeMemberConfig.downgradeMessageConfig
         val previousRoleName = concatRolesToString(previousRoleIds)
         val downgradeMessage = downgradeConfig.createDowngradeMessage(username, previousRoleName, newRoleName)
@@ -100,7 +100,7 @@ class MembershipRoleClient(
             null
         } else {
             roleIds.joinToString("+") { removedRoleId ->
-                roleNameCache.lookup(guildId, removedRoleId)
+                roleNameCache.lookup(removedRoleId)
             }
         }
     }

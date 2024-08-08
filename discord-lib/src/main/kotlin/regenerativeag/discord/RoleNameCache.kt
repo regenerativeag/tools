@@ -8,12 +8,12 @@ import regenerativeag.discord.model.GuildId
 
 class RoleNameCache(
     private val restClient: RestClient,
+    private val guildId: GuildId,
 ) {
     private val cache = mutableMapOf<RoleId, String>()
     private val seenGuildIds = mutableSetOf<GuildId>()
 
-    // TODO this PR: move guildId to a private val of this cache
-    fun lookup(guildId: GuildId, roleId: RoleId): String {
+    fun lookup(roleId: RoleId): String {
         return synchronized(cache) {
             if (guildId !in seenGuildIds) {
                 val roleNameByRoleId = runBlocking {
