@@ -8,10 +8,10 @@ import regenerativeag.Discord
 import regenerativeag.model.ChannelId
 import regenerativeag.model.UserId
 
-class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
+open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
 
-    fun postMessage(message: String, channelId: ChannelId, usersMentioned: List<UserId> = listOf()) {
+    open fun postMessage(message: String, channelId: ChannelId, usersMentioned: List<UserId> = listOf()) {
         if (dryRun) {
             val channelName = channelNameCache.lookup(channelId)
             logger.info { "Dry run... would have posted: \"$message\" in $channelName."}
