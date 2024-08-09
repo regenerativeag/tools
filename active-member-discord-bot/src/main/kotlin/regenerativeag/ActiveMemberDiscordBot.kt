@@ -81,7 +81,7 @@ class ActiveMemberDiscordBot(
 
     }
 
-    // TODO this PR: extract from this class
+    // TODO cleanup: This is too much, too complex...
     /** Reload DB state from discord, and ensure everyone's roles are up-to-date */
     private inner class Reloader {
         private val departedUserIds = mutableSetOf<UserId>()
