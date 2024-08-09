@@ -1,5 +1,10 @@
 package regenerativeag.model
 
+import regenerativeag.discord.model.ChannelId
+import regenerativeag.discord.model.GuildId
+import regenerativeag.discord.model.RoleId
+import regenerativeag.discord.model.UserId
+
 data class ActiveMemberConfig(
     val guildId: GuildId, // aka "guild id"
     val excludedUserIds: Set<UserId>, // bots

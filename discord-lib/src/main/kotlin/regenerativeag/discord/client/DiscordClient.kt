@@ -1,15 +1,13 @@
 package regenerativeag.discord.client
 
 import dev.kord.common.entity.Snowflake
-import regenerativeag.Discord
+import regenerativeag.discord.Discord
 
 open class DiscordClient(
     protected val discord: Discord,
 ) {
-    protected val activeMemberConfig
-        get() = discord.activeMemberConfig
     protected val guildId
-        get() = activeMemberConfig.guildId
+        get() = discord.guildId
     protected val sGuildId
         get() = Snowflake(guildId)
     protected val dryRun
