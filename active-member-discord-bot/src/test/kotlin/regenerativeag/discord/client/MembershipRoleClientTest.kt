@@ -11,7 +11,6 @@ import io.ktor.client.*
 import io.mockk.*
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
-import regenerativeag.MembershipRoleClient
 import regenerativeag.discord.Discord
 import regenerativeag.discord.model.ChannelId
 import regenerativeag.discord.model.RoleId

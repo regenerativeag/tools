@@ -1,9 +1,8 @@
-package regenerativeag
+package regenerativeag.discord.client
 
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import regenerativeag.discord.Discord
-import regenerativeag.discord.client.DiscordClient
 import regenerativeag.discord.model.RoleId
 import regenerativeag.discord.model.UserId
 import regenerativeag.model.ActiveMemberConfig

@@ -1,4 +1,4 @@
-package regenerativeag
+package regenerativeag.discord
 
 import regenerativeag.model.*
 import org.junit.jupiter.params.ParameterizedTest

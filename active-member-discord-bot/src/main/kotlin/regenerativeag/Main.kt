@@ -11,6 +11,7 @@ import com.github.ajalt.clikt.parameters.types.boolean
 import io.ktor.client.*
 import io.ktor.client.plugins.*
 import mu.KotlinLogging
+import regenerativeag.discord.ActiveMemberDiscordBot
 import regenerativeag.model.ActiveMemberConfig
 import regenerativeag.tools.GlobalObjectMapper
 import java.io.File
