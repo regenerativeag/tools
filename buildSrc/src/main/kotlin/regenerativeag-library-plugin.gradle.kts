@@ -1,4 +1,4 @@
-import regenerativeag.BuildConstants
+import org.regenagcoop.BuildConstants
 
 plugins {
     kotlin("jvm")

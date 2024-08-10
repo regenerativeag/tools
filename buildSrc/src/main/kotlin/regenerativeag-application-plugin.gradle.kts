@@ -1,4 +1,4 @@
-import regenerativeag.BuildConstants
+import org.regenagcoop.BuildConstants
 
 private val mainClassName = "regenerativeag.MainKt"
 

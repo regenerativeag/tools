@@ -1,4 +1,4 @@
-import regenerativeag.BuildConstants
+import org.regenagcoop.BuildConstants
 
 allprojects {
     group = BuildConstants.group
