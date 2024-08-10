@@ -21,14 +21,16 @@ class ActiveMemberDiscordBot(
     private val activeMemberConfig: ActiveMemberConfig,
 ) {
     private val logger = KotlinLogging.logger {  }
-    private val lock = object { }
+    private val canUpdateRolesOrDbLock = object { }
     private val discord = Discord(httpClient, activeMemberConfig.guildId, discordApiToken, dryRun)
     private val membershipRoleClient = MembershipRoleClient(discord, activeMemberConfig)
     private val resetMembershipsClient = ResetMembershipsClient(discord, database, membershipRoleClient, activeMemberConfig)
     private val bot = DiscordBot(discord, discordApiToken, onMessage = ::onMessage)
 
     fun login() {
-        resetMembershipsClient.cleanReload()
+        synchronized(canUpdateRolesOrDbLock) {
+            resetMembershipsClient.cleanReload()
+        }
 
         scheduleRecurringRoleDowngrading()
 
@@ -41,7 +43,7 @@ class ActiveMemberDiscordBot(
             return
         }
 
-        synchronized(lock) {
+        synchronized(canUpdateRolesOrDbLock) {
             val (isFirstPostOfDay, postDays) = database.addPost(message.userId, message.date)
             if (!isFirstPostOfDay) {
                 return
@@ -84,7 +86,7 @@ class ActiveMemberDiscordBot(
     }
     /** Downgrade roles for those who no longer meet thresholds */
     private fun downgradeRoles() {
-        synchronized(lock) {
+        synchronized(canUpdateRolesOrDbLock) {
             val today = LocalDate.now()
             val postHistory = database.getPostHistory()
             resetMembershipsClient.updateMemberRolesGivenPostHistory(postHistory, today)
