@@ -1,9 +1,13 @@
 package regenerativeag.discord
 
-import regenerativeag.model.*
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
-import regenerativeag.discord.model.UserId
+import org.regenagcoop.discord.ActiveMemberDiscordBot
+import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.model.AddRoleConfig
+import org.regenagcoop.model.KeepRoleConfig
+import org.regenagcoop.model.PostHistory
+import org.regenagcoop.discord.model.UserId
 import java.time.LocalDate
 import kotlin.test.assertEquals
 
