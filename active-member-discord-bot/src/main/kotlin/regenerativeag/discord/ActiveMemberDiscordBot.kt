@@ -5,6 +5,7 @@ import kotlinx.coroutines.*
 import mu.KotlinLogging
 import regenerativeag.Database
 import regenerativeag.discord.client.MembershipRoleClient
+import regenerativeag.discord.client.ResetMembershipsClient
 import regenerativeag.discord.model.Message
 import regenerativeag.discord.model.UserId
 import regenerativeag.model.*
@@ -23,10 +24,11 @@ class ActiveMemberDiscordBot(
     private val lock = object { }
     private val discord = Discord(httpClient, activeMemberConfig.guildId, discordApiToken, dryRun)
     private val membershipRoleClient = MembershipRoleClient(discord, activeMemberConfig)
+    private val resetMembershipsClient = ResetMembershipsClient(discord, database, membershipRoleClient, activeMemberConfig)
     private val bot = DiscordBot(discord, discordApiToken, onMessage = ::onMessage)
 
     fun login() {
-        Reloader().cleanReload()
+        resetMembershipsClient.cleanReload()
 
         scheduleRecurringRoleDowngrading()
 
@@ -69,7 +71,7 @@ class ActiveMemberDiscordBot(
 
         suspend fun downgradeAndReschedule() {
             logger.debug { "Looking for members who no longer meet role thresholds..." }
-            Reloader().downgradeRoles()
+            downgradeRoles()
             delay(millisUntilNextRun())
             downgradeAndReschedule()
         }
@@ -80,104 +82,15 @@ class ActiveMemberDiscordBot(
         }
 
     }
-
-    // TODO cleanup: This is too much, too complex...
-    /** Reload DB state from discord, and ensure everyone's roles are up-to-date */
-    private inner class Reloader {
-        private val departedUserIds = mutableSetOf<UserId>()
-        private val memberIdsWhoHadARoleBeforeRunning = mutableSetOf<UserId>()
-        private val memberIdsWhoHaveARoleAfterRunning = mutableSetOf<UserId>()
-
-        /** Read the whole message history, correct any issues in the DB, and correct any issues in people's roles */
-        fun cleanReload() {
-            logger.debug { "Reloading" }
-
+    /** Downgrade roles for those who no longer meet thresholds */
+    private fun downgradeRoles() {
+        synchronized(lock) {
             val today = LocalDate.now()
-            val postHistory = fetchPostHistory(today)
-
-            synchronized(lock) {
-                logger.debug { "Overwriting post history: $postHistory" }
-                database.overwritePostHistory(postHistory)
-
-                updateMemberRolesGivenPostHistory(postHistory, today)
-            }
-
-            logger.debug { "Reload complete" }
-        }
-
-        /** Downgrade roles for those who no longer meet thresholds */
-        fun downgradeRoles() {
-            synchronized(lock) {
-                val today = LocalDate.now()
-                val postHistory = database.getPostHistory()
-                updateMemberRolesGivenPostHistory(postHistory, today)
-            }
-        }
-
-        /** Query dicord for enough recent post history that active member roles can be computed */
-        private fun fetchPostHistory(today: LocalDate): PostHistory {
-            val daysToLookBack = activeMemberConfig.maxWindowSize
-            val postHistory = mutableMapOf<UserId, MutableSet<LocalDate>>()
-            val earliestValidDate = today.minusDays(daysToLookBack - 1L)
-            runBlocking {
-                val channelIds = discord.guild.getChannels()
-                logger.debug { "Found channels: ${channelIds.map {discord.channelNameCache.lookup(it)}}" }
-                channelIds.forEach { channelId ->
-                    val messagesInChannel = discord.rooms.readMessagesFromChannelAndSubChannels(earliestValidDate, channelId)
-                    postHistory.addHistoryFrom(messagesInChannel)
-                }
-            }
-            return postHistory
-        }
-
-        private fun MutablePostHistory.addHistoryFrom(messages: List<Message>) {
-            messages.forEach { message ->
-                if (message.userId !in this) {
-                    this[message.userId] = mutableSetOf(message.date)
-                } else {
-                    this[message.userId]!!.add(message.date)
-                }
-            }
-        }
-
-        private fun updateMemberRolesGivenPostHistory(postHistory: PostHistory, today: LocalDate) {
-            // Iterate over every role, updating all members in that role
-            val computedMembersSets = computeActiveMembers(postHistory, today, activeMemberConfig)
-            computedMembersSets.zip(activeMemberConfig.roleConfigs).forEach {
-                updateRoleMembers(it.first, it.second)
-            }
-
-            logger.debug { "Members who met a threshold, but left: ${discord.users.mapUserIdsToNames(departedUserIds)}" }
-            val inactiveMemberIds = memberIdsWhoHadARoleBeforeRunning - memberIdsWhoHaveARoleAfterRunning
-            logger.debug { "Members who no longer meet a threshold: ${discord.users.mapUserIdsToNames(inactiveMemberIds)}" }
-            membershipRoleClient.removeMembershipRolesFromUsers(inactiveMemberIds)
-        }
-
-        /** Ensure that the role identified by [roleConfig] includes exactly the members in [computedMemberIds] */
-        private fun updateRoleMembers(computedMemberIds: Set<UserId>, roleConfig: ActiveMemberConfig.RoleConfig) {
-            val roleName = discord.roleNameCache.lookup(roleConfig.roleId)
-            fun log(prefix: String, userIds: Set<UserId>) {
-                logger.debug { "$prefix $roleName (${userIds.size}): ${discord.users.mapUserIdsToNames(userIds).sorted()}" }
-            }
-
-            log("Computed members in", computedMemberIds)
-
-            val currentMemberIds = discord.users.getUsersWithRole(roleConfig.roleId)
-            log("Current members in", currentMemberIds)
-
-            val userIdsToAdd = computedMemberIds - currentMemberIds
-            log("New members to add to", userIdsToAdd)
-            val retainedUserIdsToAdd = discord.users.filterToUsersCurrentlyInGuild(
-                userIdsToAdd
-            )
-            val usersWhoLeftButMetThreshold = userIdsToAdd - retainedUserIdsToAdd
-            departedUserIds.addAll(usersWhoLeftButMetThreshold)
-            membershipRoleClient.addMembershipRoleToUsers(roleConfig, retainedUserIdsToAdd)
-
-            memberIdsWhoHadARoleBeforeRunning.addAll(currentMemberIds)
-            memberIdsWhoHaveARoleAfterRunning.addAll(computedMemberIds)
+            val postHistory = database.getPostHistory()
+            resetMembershipsClient.updateMemberRolesGivenPostHistory(postHistory, today)
         }
     }
+
 
     companion object {
 
