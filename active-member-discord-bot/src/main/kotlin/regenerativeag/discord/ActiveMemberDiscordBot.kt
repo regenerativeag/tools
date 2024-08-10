@@ -71,18 +71,13 @@ class ActiveMemberDiscordBot(
             return ChronoUnit.MILLIS.between(now, nextRunTime)
         }
 
-        suspend fun downgradeAndReschedule() {
-            logger.debug { "Looking for members who no longer meet role thresholds..." }
-            downgradeRoles()
-            delay(millisUntilNextRun())
-            downgradeAndReschedule()
-        }
-
         GlobalScope.launch {
-            delay(millisUntilNextRun())
-            downgradeAndReschedule()
+            while (true) {
+                delay(millisUntilNextRun())
+                logger.debug { "Looking for members who no longer meet role thresholds..." }
+                downgradeRoles()
+            }
         }
-
     }
     /** Downgrade roles for those who no longer meet thresholds */
     private fun downgradeRoles() {
