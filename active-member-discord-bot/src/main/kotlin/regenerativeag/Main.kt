@@ -11,9 +11,11 @@ import com.github.ajalt.clikt.parameters.types.boolean
 import io.ktor.client.*
 import io.ktor.client.plugins.*
 import mu.KotlinLogging
+import regenerativeag.discord.ActiveMemberDiscordBot
 import regenerativeag.model.ActiveMemberConfig
 import regenerativeag.tools.GlobalObjectMapper
 import java.io.File
+import kotlin.system.exitProcess
 
 
 class Main : CliktCommand() {
@@ -27,16 +29,23 @@ class Main : CliktCommand() {
         .default(true)
         .help("set to false in order for changes to take effect")
 
-    private val discordApiToken: String by option(envvar="DISCORD_API_TOKEN")
-        .required()
-
     override fun run() {
-        logger.info("Launching with configPath=$configPath, dryRun=$dryRun, discordApiToken=<omitted>")
+        val discordApiToken = readEnvVar("DISCORD_API_TOKEN")
+        logger.info("Launching with configPath=$configPath, dryRun=$dryRun")
         val httpClient = createHttpClient()
         val database = Database()
         val config = GlobalObjectMapper.readValue(File(configPath), ActiveMemberConfig::class.java)
         val bot = ActiveMemberDiscordBot(httpClient, discordApiToken, dryRun, database, config)
         bot.login()
+    }
+
+    private fun readEnvVar(name: String, required: Boolean = true): String {
+        val value: String? = System.getenv(name)
+        if (required && value.isNullOrBlank()) {
+            println("Please set the $name environment variable")
+            exitProcess(-1)
+        }
+        return value ?: ""
     }
 
     private fun createHttpClient() = HttpClient {
