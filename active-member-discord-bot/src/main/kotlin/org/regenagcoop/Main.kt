@@ -35,3 +35,5 @@ class Main : CliktCommand() {
         bot.login()
     }
 }
+
+fun main(args: Array<String>) = Main().main(args)

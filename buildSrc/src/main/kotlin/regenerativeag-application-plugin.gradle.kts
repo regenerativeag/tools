@@ -1,6 +1,6 @@
 import org.regenagcoop.BuildConstants
 
-private val mainClassName = "regenerativeag.MainKt"
+private val mainClassName = "org.regenagcoop.MainKt"
 
 plugins {
     kotlin("jvm")
