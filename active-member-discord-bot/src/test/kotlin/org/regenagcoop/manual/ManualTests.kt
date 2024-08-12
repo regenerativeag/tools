@@ -1,10 +1,9 @@
-package regenerativeag.manual
+package org.regenagcoop.manual
 
 import org.junit.jupiter.api.Test
-import org.regenagcoop.DependencyFactory
+import org.regenagcoop.*
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.client.RoomsDiscordClient
-import regenerativeag.*
 import kotlin.test.Ignore
 import kotlin.test.assertEquals
 

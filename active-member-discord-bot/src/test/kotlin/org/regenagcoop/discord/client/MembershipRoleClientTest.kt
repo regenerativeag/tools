@@ -1,4 +1,4 @@
-package regenerativeag.discord.client
+package org.regenagcoop.discord.client
 
 import dev.kord.common.entity.DiscordGuildMember
 import dev.kord.common.entity.DiscordRole
@@ -17,10 +17,10 @@ import org.regenagcoop.discord.client.RoomsDiscordClient
 import org.regenagcoop.discord.model.ChannelId
 import org.regenagcoop.discord.model.RoleId
 import org.regenagcoop.discord.model.UserId
-import regenerativeag.ChannelIds
-import regenerativeag.RoleIds
-import regenerativeag.activeMemberConfig
-import regenerativeag.guildId
+import org.regenagcoop.ChannelIds
+import org.regenagcoop.RoleIds
+import org.regenagcoop.activeMemberConfig
+import org.regenagcoop.guildId
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 

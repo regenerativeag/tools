@@ -1,4 +1,4 @@
-package regenerativeag
+package org.regenagcoop
 
 import org.regenagcoop.model.ActiveMemberConfig
 import org.regenagcoop.tools.GlobalObjectMapper

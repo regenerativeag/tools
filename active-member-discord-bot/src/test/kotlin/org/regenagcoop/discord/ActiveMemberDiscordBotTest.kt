@@ -1,4 +1,4 @@
-package regenerativeag.discord
+package org.regenagcoop.discord
 
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
