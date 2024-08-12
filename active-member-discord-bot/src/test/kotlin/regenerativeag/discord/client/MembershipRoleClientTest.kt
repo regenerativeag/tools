@@ -12,14 +12,15 @@ import io.mockk.*
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import org.regenagcoop.discord.client.MembershipRoleClient
-import org.regenagcoop.model.ActiveMemberConfig
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.client.RoomsDiscordClient
 import org.regenagcoop.discord.model.ChannelId
 import org.regenagcoop.discord.model.RoleId
 import org.regenagcoop.discord.model.UserId
-import org.regenagcoop.tools.GlobalObjectMapper
-import java.io.File
+import regenerativeag.ChannelIds
+import regenerativeag.RoleIds
+import regenerativeag.activeMemberConfig
+import regenerativeag.guildId
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -28,18 +29,6 @@ class MembershipRoleClientTest {
 
     data class Message(val text: String, val channelId: ChannelId)
 
-    private val config = GlobalObjectMapper.readValue(File("bot-config.yml"), ActiveMemberConfig::class.java)
-
-    companion object {
-        private val guildId = 1162017936656044042uL
-        private val guestRoleId = 1240396803946582056uL
-        private val activeMemberRoleId = 1223026651340996698uL
-
-        private val connectChannelId = 1162017937796911209uL
-        private val communityChannelId = 1223262623194153111uL
-        private val moderationLogChannelId = 1230667079213125702uL
-    }
-
     enum class AddAndRemovalTestCase(
         val userId: UserId,
         val currentRoleIds: List<RoleId>,
@@ -47,27 +36,27 @@ class MembershipRoleClientTest {
         val expectedMessage: Message?,
         val username: String = "Zelda",
     ) {
-        VISITOR_TO_GUEST(1uL, listOf(), guestRoleId, Message("A warm hello to our newest guest, <@1> :relaxed: Please check out <#1240458302530519123> when you have a moment.", connectChannelId)),
-        GUEST_TO_VISITOR(2uL, listOf(guestRoleId), null, Message("Zelda has transitioned from Guest to Visitor (no role).", moderationLogChannelId)),
+        VISITOR_TO_GUEST(1uL, listOf(), RoleIds.guest, Message("A warm hello to our newest guest, <@1> :relaxed: Please check out our [Community Guide](https://regenagcoop.org/community-guide/) when you have a moment.", ChannelIds.connect)),
+        GUEST_TO_VISITOR(2uL, listOf(RoleIds.guest), null, Message("Zelda has transitioned from Guest to Visitor (no role).", ChannelIds.moderationLog)),
 
-        GUEST_TO_ACTIVE_MEMBER(3uL, listOf(guestRoleId), activeMemberRoleId, Message("Welcome to our community, <@3>!", communityChannelId)),
-        ACTIVE_MEMBER_TO_GUEST(4uL, listOf(activeMemberRoleId), guestRoleId, Message("Zelda has transitioned from Active Member to Guest.", moderationLogChannelId)),
+        GUEST_TO_ACTIVE_MEMBER(3uL, listOf(RoleIds.guest), RoleIds.activeMember, Message("Welcome to our community, <@3>!", ChannelIds.community)),
+        ACTIVE_MEMBER_TO_GUEST(4uL, listOf(RoleIds.activeMember), RoleIds.guest, Message("Zelda has transitioned from Active Member to Guest.", ChannelIds.moderationLog)),
 
         VISITOR_TO_VISITOR(5uL, listOf(), null, null),
-        GUEST_TO_GUEST(6uL, listOf(guestRoleId), guestRoleId, null),
-        ACTIVE_MEMBER_TO_ACTIVE_MEMBER(7uL, listOf(activeMemberRoleId), activeMemberRoleId, null);
+        GUEST_TO_GUEST(6uL, listOf(RoleIds.guest), RoleIds.guest, null),
+        ACTIVE_MEMBER_TO_ACTIVE_MEMBER(7uL, listOf(RoleIds.activeMember), RoleIds.activeMember, null);
     }
 
     private val capturedMessages = mutableListOf<Message>()
     private val restClient = mockk<RestClient>()
-    private val discord = object : Discord(mockk<HttpClient>(), config.guildId,"test_token", false, restClient) {
+    private val discord = object : Discord(mockk<HttpClient>(), guildId,"test_token", false, restClient) {
         override val rooms = object : RoomsDiscordClient(this) {
             override fun postMessage(message: String, channelId: ChannelId, usersMentioned: List<UserId>) {
                 capturedMessages.add(Message(message, channelId))
             }
         }
     }
-    private val membershipRoleClient = MembershipRoleClient(discord, config)
+    private val membershipRoleClient = MembershipRoleClient(discord, activeMemberConfig)
 
 
     @ParameterizedTest
@@ -77,7 +66,7 @@ class MembershipRoleClientTest {
 
         if (case.newRoleId != null) {
             // add/replace a role
-            val roleConfig = config.roleConfigs.single { it.roleId == case.newRoleId }
+            val roleConfig = activeMemberConfig.roleConfigs.single { it.roleId == case.newRoleId }
             membershipRoleClient.addMembershipRoleToUsers(roleConfig, setOf(case.userId))
             val alreadyHasRole = case.newRoleId in case.currentRoleIds
             if (alreadyHasRole) {
@@ -126,8 +115,8 @@ class MembershipRoleClientTest {
 
         // fetch roles (roleName cache)
         val guildRoles = listOf(
-            guestRoleId to "Guest",
-            activeMemberRoleId to "Active Member",
+            RoleIds.guest to "Guest",
+            RoleIds.activeMember to "Active Member",
         ).map { (roleId, roleName) ->
             mockk<DiscordRole>().also { role ->
                 every { role.id }.returns(Snowflake(roleId))

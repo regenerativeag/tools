@@ -22,7 +22,7 @@ roleConfigs:
       minPostDays: 1
     welcomeMessageConfig:
       channel: 1162017937796911209
-      template: "A warm hello to our newest guest, USER_MENTION :relaxed: Please check out <#1240458302530519123> when you have a moment."
+      template: "A warm hello to our newest guest, USER_MENTION :relaxed: Please check out our [Community Guide](https://regenagcoop.org/community-guide/) when you have a moment."
   # Active Member
   - roleId: 1223026651340996698
     addRoleConfig:
