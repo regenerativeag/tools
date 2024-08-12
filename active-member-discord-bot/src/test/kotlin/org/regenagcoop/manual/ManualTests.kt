@@ -19,16 +19,17 @@ import kotlin.test.assertEquals
  * You can run the test directly through the IDE (if you have one) or command line using junit, if not. TODO: instructions for running on command line.
  */
 class ManualTests {
-    private val discord = with(DependencyFactory()) {
-        Discord(
-            createHttpClient(),
-            guildId,
-            readDiscordApiToken(),
-            dryRun = true
-        )
+    private val discord: Discord by lazy {
+        with(DependencyFactory()) {
+            Discord(
+                createHttpClient(),
+                guildId,
+                readDiscordApiToken(),
+                dryRun = true /* */
+            )
+        }
     }
 
-    private val roomsDiscordClient = RoomsDiscordClient(discord)
 
     @Ignore
     @Test
@@ -43,6 +44,7 @@ class ManualTests {
         val message = guestRoleConfig.welcomeMessageConfig.createWelcomeMessage(userId)
 
         // execute
+        val roomsDiscordClient = RoomsDiscordClient(discord)
         roomsDiscordClient.postMessage(message, channelId)
     }
 }
