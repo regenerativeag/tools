@@ -1,11 +1,13 @@
 package org.regenagcoop.discord.client
 
+import co.touchlab.stately.collections.ConcurrentMutableList
 import dev.kord.common.entity.DiscordMessage
 import dev.kord.common.entity.Snowflake
 import dev.kord.rest.builder.message.AllowedMentionsBuilder
 import dev.kord.rest.json.request.ListThreadsByTimestampRequest
 import dev.kord.rest.request.KtorRequestException
 import dev.kord.rest.route.Position
+import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.regenagcoop.coroutine.parallelMapIO
 import org.regenagcoop.discord.Discord
@@ -43,39 +45,68 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         readBackUntil: LocalDate,
         channelId: ChannelId,
     ): List<Message> {
-        val messages = mutableListOf<Message>()
-        val subChannels = mutableSetOf<ChannelId>()
 
-        val (messagesInChannel, threadsInChannel) = readMessagesFromChannel(readBackUntil, channelId)
-        messages.addAll(messagesInChannel)
-        subChannels.addAll(threadsInChannel)
+        return coroutineScope {
+            val threadMessagesDeferreds = ConcurrentMutableList<Deferred<List<Message>>>()
 
-        val archivedThreadsInChannel = listArchivedThreads(channelId)
-        subChannels.addAll(archivedThreadsInChannel)
+            // Start fetching messages from the top level channel
+            val channelMessagesDeferred = async {
+                fetchMessagesFromChannel(readBackUntil, channelId) { threadChannelId ->
+                    // any time we encounter a thread while reading messages in the channel,
+                    // add a deferred for the thread's messages to threadMessagesDeffereds
+                    threadMessagesDeferreds.add(async {
+                        fetchMessagesFromChannel(readBackUntil, threadChannelId) { subThreadChannelId ->
+                            // Throw if we unexpectedly find a sub-thread of a thread
+                            val channelName = channelNameCache.lookup(channelId)
+                            val threadName = channelNameCache.lookup(threadChannelId)
+                            val subThreadName = channelNameCache.lookup(subThreadChannelId)
 
-        val messagesPerSubChannel = subChannels.parallelMapIO { threadId ->
-            val (messagesInThread, threadsInThread) = readMessagesFromChannel(readBackUntil, threadId)
-            if (threadsInThread.isNotEmpty()) {
-                throw RuntimeException("found ${threadsInThread.size} sub-threads in ${channelNameCache.lookup(threadId)} of ${channelNameCache.lookup(channelId)}")
+                            throw IllegalStateException("found sub-thread '$subThreadName' in thread '$threadName' of $channelName")
+                        }
+                    })
+                }
             }
-            messagesInThread
-        }
-        messagesPerSubChannel.forEach(messages::addAll)
 
-        return messages
+            // For every archived thread in the channel...
+            val archivedThreadsInChannel = listArchivedThreads(channelId)
+            archivedThreadsInChannel.forEach { archivedThreadChannelId ->
+                // add a deferred for the archived thread's messages to threadMessagesDeferreds
+                threadMessagesDeferreds.add(async {
+                    fetchMessagesFromChannel(readBackUntil, archivedThreadChannelId) { subThreadChannelId ->
+                        // throw if we unexpectedly find a sub-thread of an archived thread
+                        val channelName = channelNameCache.lookup(channelId)
+                        val threadName = channelNameCache.lookup(archivedThreadChannelId)
+                        val subThreadName = channelNameCache.lookup(subThreadChannelId)
+
+                        throw IllegalStateException("found sub-thread '$subThreadName' in thread '$threadName' of $channelName")
+                    }
+                })
+            }
+
+            // wait until we've read all messages from the channel
+            val channelMessages = channelMessagesDeferred.await()
+
+            // once the channel has be read, we know all threads in the channel have been discovered
+            // wait until all threads have been read
+            val messagesPerSubThread = threadMessagesDeferreds.awaitAll()
+
+            // the result is the messages in the channel plus the messages in all of its threads
+            channelMessages + messagesPerSubThread.flatten()
+        }
     }
 
-    /** Returns the messages read as well as the sub-channels (threads) discovered while reading messages */
-    private suspend fun readMessagesFromChannel(
+
+    private suspend fun fetchMessagesFromChannel(
         readBackUntil: LocalDate,
         channelId: ChannelId,
-        pageSize: Int = 100
-    ): Pair<List<Message>, MutableSet<ChannelId>> {
+        pageSize: Int = 100,
+        onThreadFound: suspend (ChannelId) -> Unit
+    ): List<Message> {
         val channelName = channelNameCache.lookup(channelId)
         logger.debug { "Getting messages from '$channelName'" }
         var lastSeenDiscordMessage: DiscordMessage? = null
-        val threadsInChannel = mutableSetOf<ChannelId>()
         val messagesInChannel = mutableListOf<Message>()
+
         do {
             val discordMessages = getMessages(channelId, pageSize, lastSeenDiscordMessage)
             val messages = discordMessages
@@ -89,27 +120,28 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
                     if (subChannel != null) {
                         // if this message is the start of a thread
                         channelNameCache.cacheFrom(subChannel)
-                        threadsInChannel.add(subChannel.id.value)
+                        onThreadFound(subChannel.id.value)
                     }
                     messagesInChannel.add(Message(it.getUserId(), it.getLocalDate()))
                 }
             lastSeenDiscordMessage = discordMessages.lastOrNull()
         } while (messages.size == pageSize && lastSeenDiscordMessage!!.getLocalDate() >= readBackUntil)
-        return messagesInChannel to threadsInChannel
+
+        return messagesInChannel
     }
 
     private suspend fun listArchivedThreads(channelId: ChannelId, limit: Int = 100): List<ChannelId> {
+        val channelName = channelNameCache.lookup(channelId)
         return try {
             val archivedChannels = restClient.channel.listPublicArchivedThreads(
                 Snowflake(channelId),
                 ListThreadsByTimestampRequest(limit=limit)
             ).threads
             archivedChannels.onEach { channelNameCache.cacheFrom(it) }
-            logger.debug { "found archived threads in channel: ${archivedChannels.map { it.name.value }}" }
+            logger.debug { "found archived threads in $channelName: ${archivedChannels.map { it.name.value }}" }
             archivedChannels.map { it.id.value }
         } catch (e: KtorRequestException) {
             if (e.status.code == 403) {
-                val channelName = channelNameCache.lookup(channelId)
                 logger.debug { "Access denied for channel '$channelName'" }
                 return listOf()
             } else {
