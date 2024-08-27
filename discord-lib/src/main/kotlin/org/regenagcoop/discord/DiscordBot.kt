@@ -14,11 +14,11 @@ import org.regenagcoop.discord.model.Message
 open class DiscordBot(
     discord: Discord,
     private val discordApiToken: String,
-    private val onMessage: ((Message) -> Unit)? = null,
+    private val onMessage: (suspend (Message) -> Unit)? = null,
 ): DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
 
-    fun login() {
+    suspend fun login() {
         val gateway = DefaultGateway()
 
         if (onMessage != null) {
@@ -34,10 +34,9 @@ open class DiscordBot(
             }.launchIn(gateway)
         }
 
-        runBlocking {
-            gateway.start(discordApiToken) {
-                // use defaults... nothing to do here.
-            }
+        // endlessly listen for events
+        gateway.start(discordApiToken) {
+            // use defaults... nothing to do here.
         }
     }
 }

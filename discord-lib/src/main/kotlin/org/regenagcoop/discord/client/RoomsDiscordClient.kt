@@ -7,7 +7,7 @@ import dev.kord.rest.json.request.ListThreadsByTimestampRequest
 import dev.kord.rest.request.KtorRequestException
 import dev.kord.rest.route.Position
 import mu.KotlinLogging
-import org.regenagcoop.coroutine.parallelMap
+import org.regenagcoop.coroutine.parallelMapIO
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.getLocalDate
 import org.regenagcoop.discord.getUserId
@@ -19,7 +19,11 @@ import java.time.LocalDate
 open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
 
-    open suspend fun postMessage(message: String, channelId: ChannelId, usersMentioned: List<UserId> = listOf()) {
+    open suspend fun postMessage(
+        message: String,
+        channelId: ChannelId,
+        usersMentioned: List<UserId> = listOf()
+    ) {
         if (dryRun) {
             val channelName = channelNameCache.lookup(channelId)
             logger.info { "Dry run... would have posted: \"$message\" in $channelName."}
@@ -49,7 +53,7 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         val archivedThreadsInChannel = listArchivedThreads(channelId)
         subChannels.addAll(archivedThreadsInChannel)
 
-        val messagesPerSubChannel = subChannels.parallelMap { threadId ->
+        val messagesPerSubChannel = subChannels.parallelMapIO { threadId ->
             val (messagesInThread, threadsInThread) = readMessagesFromChannel(readBackUntil, threadId)
             if (threadsInThread.isNotEmpty()) {
                 throw RuntimeException("found ${threadsInThread.size} sub-threads in ${channelNameCache.lookup(threadId)} of ${channelNameCache.lookup(channelId)}")

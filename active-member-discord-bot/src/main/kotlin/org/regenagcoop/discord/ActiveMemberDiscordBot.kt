@@ -2,16 +2,18 @@ package org.regenagcoop.discord
 
 import io.ktor.client.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import mu.KotlinLogging
 import org.regenagcoop.Database
+import org.regenagcoop.discord.client.FetchPostHistoryClient
 import org.regenagcoop.discord.client.MembershipRoleClient
 import org.regenagcoop.discord.client.ResetMembershipsClient
 import org.regenagcoop.model.ActiveMemberConfig
 import org.regenagcoop.model.PostHistory
 import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.UserId
-import java.time.LocalDate
-import java.time.ZonedDateTime
+import java.time.*
 import java.time.temporal.ChronoUnit
 
 class ActiveMemberDiscordBot(
@@ -22,76 +24,129 @@ class ActiveMemberDiscordBot(
     private val activeMemberConfig: ActiveMemberConfig,
 ) {
     private val logger = KotlinLogging.logger {  }
-    private val canUpdateRolesOrDbLock = object { }
+    private val canUpdateRolesOrDbMutex = Mutex()
     private val discord = Discord(httpClient, activeMemberConfig.guildId, discordApiToken, dryRun)
     private val membershipRoleClient = MembershipRoleClient(discord, activeMemberConfig)
-    private val resetMembershipsClient = ResetMembershipsClient(discord, database, membershipRoleClient, activeMemberConfig)
+    private val fetchPostHistoryClient = FetchPostHistoryClient(discord, activeMemberConfig)
+    private val resetMembershipsClient = ResetMembershipsClient(discord, membershipRoleClient, activeMemberConfig)
     private val bot = DiscordBot(discord, discordApiToken, onMessage = ::onMessage)
 
-    fun login() {
-        synchronized(canUpdateRolesOrDbLock) {
-            runBlocking {
-                resetMembershipsClient.cleanReload()
+    @OptIn(DelicateCoroutinesApi::class)
+    fun start() {
+        val startupDate = LocalDate.now()
+
+        // Launch a new top-level coroutine in the default thread pool that reloads the database
+        val reloadDatabaseJob = GlobalScope.launch {
+            canUpdateRolesOrDbMutex.withLock {
+                logger.debug { "Reloading Database" }
+                val postHistory = fetchPostHistoryClient.fetchPostHistory(startupDate)
+
+                logger.debug { "Overwriting post history: $postHistory" }
+                database.overwritePostHistory(postHistory)
             }
         }
 
-        scheduleRecurringRoleDowngrading()
+        // Reset all roles after the database has been reloaded
+        val resetRolesJob = GlobalScope.launch {
+            reloadDatabaseJob.join()
 
-        bot.login()
+            logger.debug { "Resetting roles" }
+            val postHistory = database.getPostHistory()
+            resetMembershipsClient.resetRolesGivenPostHistory(postHistory, startupDate)
+        }
+
+        // ENDLESSLY listen for websocket events from discord.
+        val listenForDiscordEventsJob = GlobalScope.launch {
+            reloadDatabaseJob.join() // wait until the database has been reloaded
+            resetRolesJob.join() // wait until roles have been reset
+
+            logger.debug { "Listening for discord events" }
+            bot.login() // endlessly listen for websocket events from discord
+            // Events listened to:
+            // onMessage: If the user's post qualified them for a new role
+            //   - give them the role
+            //   - welcome them with a message
+        }
+
+        // ENDLESSLY do daily tasks
+        val dailyJob = GlobalScope.launch {
+            reloadDatabaseJob.join()
+            resetRolesJob.join()
+            while (true) {
+                // Pause this coroutine until 12:05 am UTC
+                val delayMs = millisUntilNextDailyJobExecution()
+                val nextExecutionLocalTime = LocalDateTime.now().plus(delayMs, ChronoUnit.MILLIS)
+                logger.debug { "Next execution of daily job scheduled for $nextExecutionLocalTime"}
+                delay(delayMs)
+
+                logger.debug { "Daily Job started"}
+
+                logger.debug{ "Downgrading roles for users who no longer meet threshold" }
+                downgradeRoles()
+            }
+        }
+
+        // In the main thread, block until all jobs are complete
+        // Some jobs are endless, so the only way to exit this program is for the user to press Ctl+C or Cmd+C or kill the process.
+        runBlocking {
+            listOf(
+                reloadDatabaseJob,
+                resetRolesJob,
+                listenForDiscordEventsJob,
+                dailyJob
+            ).joinAll()
+        }
     }
 
     /** If this message results in the user meeting an active-member threshold, adjust the user's roles. */
-    private fun onMessage(message: Message) {
+    private suspend fun onMessage(message: Message) {
         if (message.userId in activeMemberConfig.excludedUserIds) {
             return
         }
 
-        synchronized(canUpdateRolesOrDbLock) {
-            runBlocking {
-                val (isFirstPostOfDay, postDays) = database.addPost(message.userId, message.date)
-                if (!isFirstPostOfDay) {
-                    return@runBlocking
-                }
-                // check roles in reverse order, so that user is granted the highest role they are qualified for
-                for (roleConfig in activeMemberConfig.roleConfigs.reversed()) {
-                    val meetsThreshold = meetsThreshold(roleConfig, postDays, LocalDate.now())
-                    if (meetsThreshold) {
-                        val roleName = discord.roleNameCache.lookup(roleConfig.roleId)
-                        logger.debug { "(Re)adding $roleName for \"${message.userId}\"." }
-                        membershipRoleClient.addMembershipRoleToUsers(roleConfig, setOf(message.userId))
-                        break
-                    }
+        canUpdateRolesOrDbMutex.withLock {
+            val (isFirstPostOfDay, postDays) = database.addPost(message.userId, message.date)
+            if (!isFirstPostOfDay) {
+                return
+            }
+            // check roles in reverse order, so that user is granted the highest role they are qualified for
+            for (roleConfig in activeMemberConfig.roleConfigs.reversed()) {
+                val meetsThreshold = meetsThreshold(roleConfig, postDays, LocalDate.now())
+                if (meetsThreshold) {
+                    val roleName = discord.roleNameCache.lookup(roleConfig.roleId)
+                    val username = discord.usernameCache.lookup(message.userId)
+                    logger.debug { "(Re)adding $roleName for $username (${message.userId})." }
+                    membershipRoleClient.addMembershipRoleToUsers(roleConfig, setOf(message.userId))
+                    break
                 }
             }
         }
+
     }
 
-    /** schedule a recurring job that downgrades memberships for those who haven't posted in a while */
-    @OptIn(DelicateCoroutinesApi::class)
-    private fun scheduleRecurringRoleDowngrading() {
-        fun millisUntilNextRun(): Long {
-            val now = ZonedDateTime.now()
-            val today = ZonedDateTime.of(now.year, now.monthValue, now.dayOfMonth, 0, 0, 0, 0, now.zone)
-            val nextRunTime = today.plusDays(1).plusMinutes(5)
-            return ChronoUnit.MILLIS.between(now, nextRunTime)
+    /** Millis until 12:05am UTC */
+    private fun millisUntilNextDailyJobExecution(): Long {
+        val nowUTC = ZonedDateTime.now(ZoneOffset.UTC)
+
+        // 12:05 am
+        val todayRunTimeUTC = ZonedDateTime.of(nowUTC.year, nowUTC.monthValue, nowUTC.dayOfMonth, 0, 5, 0, 0, nowUTC.zone)
+
+        val todayRunTimeAlreadyPassed = todayRunTimeUTC < nowUTC
+        val nextRunTimeUTC = if (todayRunTimeAlreadyPassed) {
+            todayRunTimeUTC.plusDays(1)
+        } else {
+            todayRunTimeUTC
         }
 
-        GlobalScope.launch {
-            while (true) {
-                delay(millisUntilNextRun())
-                logger.debug { "Looking for members who no longer meet role thresholds..." }
-                downgradeRoles()
-            }
-        }
+        return ChronoUnit.MILLIS.between(nowUTC, nextRunTimeUTC)
     }
+
     /** Downgrade roles for those who no longer meet thresholds */
-    private fun downgradeRoles() {
-        synchronized(canUpdateRolesOrDbLock) {
-            runBlocking {
-                val today = LocalDate.now()
-                val postHistory = database.getPostHistory()
-                resetMembershipsClient.updateMemberRolesGivenPostHistory(postHistory, today)
-            }
+    private suspend fun downgradeRoles() {
+        canUpdateRolesOrDbMutex.withLock {
+            val today = LocalDate.now()
+            val postHistory = database.getPostHistory()
+            resetMembershipsClient.resetRolesGivenPostHistory(postHistory, today)
         }
     }
 

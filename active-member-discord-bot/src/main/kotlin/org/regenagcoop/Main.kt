@@ -32,7 +32,7 @@ class Main : CliktCommand() {
             ActiveMemberDiscordBot(httpClient, discordApiToken, dryRun, database, config)
         }
 
-        bot.login()
+        bot.start()
     }
 }
 

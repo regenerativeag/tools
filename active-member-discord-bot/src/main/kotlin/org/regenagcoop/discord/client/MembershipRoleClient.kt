@@ -1,8 +1,8 @@
 package org.regenagcoop.discord.client
 
 import mu.KotlinLogging
-import org.regenagcoop.coroutine.parallelForEach
-import org.regenagcoop.coroutine.parallelMap
+import org.regenagcoop.coroutine.parallelForEachIO
+import org.regenagcoop.coroutine.parallelMapIO
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.RoleId
 import org.regenagcoop.discord.model.UserId
@@ -20,13 +20,15 @@ class MembershipRoleClient(
      *
      * If the user already has some other active member role, remove that role.
      */
-    suspend fun addMembershipRoleToUsers(roleConfig: ActiveMemberConfig.RoleConfig, userIds: Set<UserId>) {
+    suspend fun addMembershipRoleToUsers(
+        roleConfig: ActiveMemberConfig.RoleConfig, userIds: Set<UserId>
+    ) {
         val roleId = roleConfig.roleId
         val roleName = roleNameCache.lookup(roleId)
 
-        val usernames = userIds.parallelMap { usernameCache.lookup(it) }
+        val usernames = userIds.parallelMapIO { usernameCache.lookup(it) }
 
-        userIds.zip(usernames).parallelForEach { (userId, username) ->
+        userIds.zip(usernames).parallelForEachIO { (userId, username) ->
             val currentMembershipRoleIds = getCurrentMembershipRoleIds(userId)
             if (roleId in currentMembershipRoleIds) {
                 logger.debug { "$username already has role $roleId ($roleName)" }
@@ -40,7 +42,6 @@ class MembershipRoleClient(
                 postUpgradeOrDowngradeMessage(userId, roleIdsToRemove, roleConfig)
             }
         }
-
     }
 
     /** Remove all membership roles from the given users */
@@ -95,7 +96,7 @@ class MembershipRoleClient(
         return if (roleIds.isEmpty()) {
             null
         } else {
-            val roleNames = roleIds.parallelMap { roleNameCache.lookup(it) }
+            val roleNames = roleIds.parallelMapIO { roleNameCache.lookup(it) }
             roleNames.joinToString("+")
         }
     }

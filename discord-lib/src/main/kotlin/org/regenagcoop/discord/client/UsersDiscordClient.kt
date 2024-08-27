@@ -4,10 +4,12 @@ import dev.kord.common.entity.DiscordGuildMember
 import dev.kord.common.entity.Snowflake
 import dev.kord.rest.request.KtorRequestException
 import dev.kord.rest.route.Position
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
-import org.regenagcoop.coroutine.parallelFilter
-import org.regenagcoop.coroutine.parallelForEach
-import org.regenagcoop.coroutine.parallelMap
+import org.regenagcoop.coroutine.parallelFilterIO
+import org.regenagcoop.coroutine.parallelForEachIO
+import org.regenagcoop.coroutine.parallelMapIO
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.RoleId
 import org.regenagcoop.discord.model.UserId
@@ -16,12 +18,12 @@ class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
 
     suspend fun mapUserIdsToNames(userIds: Iterable<UserId>): List<String> {
-        return userIds.parallelMap { usernameCache.lookup(it) }
+        return userIds.parallelMapIO { usernameCache.lookup(it) }
     }
 
     /** Of the users provided, only return the users which are still in the guild */
     suspend fun filterToUsersCurrentlyInGuild(userIds: Set<UserId>): Set<UserId> {
-        return userIds.parallelFilter {
+        return userIds.parallelFilterIO {
             try {
                 getGuildMember(it)
                 true
@@ -96,7 +98,7 @@ class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
     }
 
     private suspend fun deleteRolesFromGuildMember(userId: UserId, roleIds: Iterable<RoleId>) {
-        roleIds.parallelForEach {
+        roleIds.parallelForEachIO {
             deleteRoleFromGuildMember(userId, it)
         }
     }

@@ -1,46 +1,32 @@
 package org.regenagcoop.discord.client
 
 import mu.KotlinLogging
-import org.regenagcoop.Database
-import org.regenagcoop.coroutine.parallelMap
 import org.regenagcoop.discord.ActiveMemberDiscordBot
 import org.regenagcoop.discord.Discord
-import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActiveMemberConfig
-import org.regenagcoop.model.MutablePostHistory
 import org.regenagcoop.model.PostHistory
 import java.time.LocalDate
 
 /** A DiscordClient which posts messages to appropriate rooms when adding/removing roles */
 class ResetMembershipsClient(
     discord: Discord,
-    private val database: Database,
     private val membershipRoleClient: MembershipRoleClient,
     private val activeMemberConfig: ActiveMemberConfig,
 ) : DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
 
-    /** Read the message history, correct any issues in the DB, and correct any issues in people's roles */
-    suspend fun cleanReload() {
-        logger.debug { "Reloading" }
+    suspend fun resetRolesGivenPostHistory(postHistory: PostHistory, today: LocalDate) {
+        // 1. Given the postHistory, compute what members should be in what roles
 
-        val today = LocalDate.now()
-        val postHistory = fetchPostHistory(today)
-
-        logger.debug { "Overwriting post history: $postHistory" }
-        database.overwritePostHistory(postHistory)
-
-        updateMemberRolesGivenPostHistory(postHistory, today)
-
-        logger.debug { "Reload complete" }
-    }
-
-    suspend fun updateMemberRolesGivenPostHistory(postHistory: PostHistory, today: LocalDate) {
-        // Iterate over every role, updating all members in that role
+        // computedMemberSets is a list
+        // - in the same order as activeMemberConfig.roleConfigs
+        // - of which members are in what roles... given the post history, today's date, and the roleConfigs
         val computedMembersSets = ActiveMemberDiscordBot.computeActiveMembers(postHistory, today, activeMemberConfig)
         val departedMemberIds = mutableSetOf<UserId>()
         val previousMemberIds = mutableSetOf<UserId>()
+
+        // 2. Iterate over every role, resetting all members in that role
         computedMembersSets.zip(activeMemberConfig.roleConfigs).forEach { (members, roleConfig) ->
             val result = updateRoleMembers(members, roleConfig)
             departedMemberIds.addAll(result.departedMemberIds)
@@ -53,29 +39,13 @@ class ResetMembershipsClient(
         val currentMemberIds = mutableSetOf<UserId>()
         computedMembersSets.forEach(currentMemberIds::addAll)
 
+        // And finally, remove all roles from members who don't meet any thresholds
         val inactiveMemberIds = previousMemberIds - currentMemberIds
         val inactiveUsernames = discord.users.mapUserIdsToNames(inactiveMemberIds)
         logger.debug { "Members who no longer meet a threshold: $inactiveUsernames" }
         membershipRoleClient.removeMembershipRolesFromUsers(inactiveMemberIds)
     }
 
-
-    /** Query dicord for enough recent post history that active member roles can be computed */
-    private suspend fun fetchPostHistory(today: LocalDate): PostHistory {
-        val daysToLookBack = activeMemberConfig.maxWindowSize
-        val earliestValidDate = today.minusDays(daysToLookBack - 1L)
-
-        val channelIds = discord.guild.getChannels()
-        val channelNames = channelIds.parallelMap { discord.channelNameCache.lookup(it) }
-        logger.debug { "Found channels: $channelNames" }
-        val messagesPerChannel = channelIds.parallelMap { channelId ->
-            discord.rooms.readMessagesFromChannelAndSubChannels(earliestValidDate, channelId)
-        }
-
-        val postHistory = mutableMapOf<UserId, MutableSet<LocalDate>>()
-        messagesPerChannel.forEach { postHistory.addHistoryFrom(it) }
-        return postHistory
-    }
 
     /** Ensure that the role identified by [roleConfig] includes exactly the members in [allMembersInRole] */
     private suspend fun updateRoleMembers(allMembersInRole: Set<UserId>, roleConfig: ActiveMemberConfig.RoleConfig): UpdateResult {
@@ -109,14 +79,4 @@ class ResetMembershipsClient(
         /** The users who qualified for the role, but left the server */
         val departedMemberIds: Set<UserId>,
     )
-
-    private fun MutablePostHistory.addHistoryFrom(messages: List<Message>) {
-        messages.forEach { message ->
-            if (message.userId !in this) {
-                this[message.userId] = mutableSetOf(message.date)
-            } else {
-                this[message.userId]!!.add(message.date)
-            }
-        }
-    }
 }

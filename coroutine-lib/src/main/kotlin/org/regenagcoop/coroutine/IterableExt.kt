@@ -1,30 +1,32 @@
 package org.regenagcoop.coroutine
 
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.*
 
 /**
- * Map over an iterable in parallel, and return results.
+ * Map over the iterable in parallel by launching a new coroutine in the IO threadpool for every element
  * Based on: https://stackoverflow.com/a/58735169
  */
-suspend fun <A, B> Iterable<A>.parallelMap(transform: suspend (A) -> B): List<B> {
+suspend fun <A, B> Iterable<A>.parallelMapIO(transform: suspend (A) -> B): List<B> {
     val collection = this
     return coroutineScope {
-        collection.map {
-            async { transform(it) }
-        }.awaitAll()
+        withContext(Dispatchers.IO) {
+            collection.map {
+                async {
+                    transform(it)
+                }
+            }.awaitAll()
+        }
     }
 }
 
-suspend fun <A> Iterable<A>.parallelForEach(onEach: suspend (A) -> Unit) {
+suspend fun <A> Iterable<A>.parallelForEachIO(onEach: suspend (A) -> Unit) {
     val collection = this
-    collection.parallelMap(onEach)
+    collection.parallelMapIO(onEach)
 }
 
-suspend fun <A> Iterable<A>.parallelFilter(check: suspend (A) -> Boolean): List<A> {
+suspend fun <A> Iterable<A>.parallelFilterIO(check: suspend (A) -> Boolean): List<A> {
     val collection = this
-    val shouldKeep = collection.parallelMap(check)
+    val shouldKeep = collection.parallelMapIO(check)
     return collection.filterIndexed { idx, _ ->
         shouldKeep[idx]
     }
