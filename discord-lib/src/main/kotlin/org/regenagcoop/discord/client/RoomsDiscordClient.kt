@@ -6,8 +6,8 @@ import dev.kord.rest.builder.message.AllowedMentionsBuilder
 import dev.kord.rest.json.request.ListThreadsByTimestampRequest
 import dev.kord.rest.request.KtorRequestException
 import dev.kord.rest.route.Position
-import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
+import org.regenagcoop.coroutine.parallelMap
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.getLocalDate
 import org.regenagcoop.discord.getUserId
@@ -19,47 +19,44 @@ import java.time.LocalDate
 open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
 
-    open fun postMessage(message: String, channelId: ChannelId, usersMentioned: List<UserId> = listOf()) {
+    open suspend fun postMessage(message: String, channelId: ChannelId, usersMentioned: List<UserId> = listOf()) {
         if (dryRun) {
             val channelName = channelNameCache.lookup(channelId)
             logger.info { "Dry run... would have posted: \"$message\" in $channelName."}
         } else {
-            runBlocking {
-                restClient.channel.createMessage((Snowflake(channelId))) {
-                    this.content = message
-                    this.allowedMentions = AllowedMentionsBuilder().also { builder ->
-                        usersMentioned.forEach { userId ->
-                            builder.users.add(Snowflake(userId))
-                        }
+            restClient.channel.createMessage((Snowflake(channelId))) {
+                this.content = message
+                this.allowedMentions = AllowedMentionsBuilder().also { builder ->
+                    usersMentioned.forEach { userId ->
+                        builder.users.add(Snowflake(userId))
                     }
                 }
             }
         }
     }
 
-    fun readMessagesFromChannelAndSubChannels(
+    suspend fun readMessagesFromChannelAndSubChannels(
         readBackUntil: LocalDate,
         channelId: ChannelId,
     ): List<Message> {
         val messages = mutableListOf<Message>()
         val subChannels = mutableSetOf<ChannelId>()
 
-        runBlocking {
-            val (messagesInChannel, threadsInChannel) = readMessagesFromChannel(readBackUntil, channelId)
-            messages.addAll(messagesInChannel)
-            subChannels.addAll(threadsInChannel)
+        val (messagesInChannel, threadsInChannel) = readMessagesFromChannel(readBackUntil, channelId)
+        messages.addAll(messagesInChannel)
+        subChannels.addAll(threadsInChannel)
 
-            val archivedThreadsInChannel = listArchivedThreads(channelId)
-            subChannels.addAll(archivedThreadsInChannel)
+        val archivedThreadsInChannel = listArchivedThreads(channelId)
+        subChannels.addAll(archivedThreadsInChannel)
 
-            subChannels.forEach { threadId ->
-                val (messagesInThread, threadsInThread) = readMessagesFromChannel(readBackUntil, threadId)
-                if (threadsInThread.isNotEmpty()) {
-                    throw RuntimeException("found ${threadsInThread.size} sub-threads in ${channelNameCache.lookup(threadId)} of ${channelNameCache.lookup(channelId)}")
-                }
-                messages.addAll(messagesInThread)
+        val messagesPerSubChannel = subChannels.parallelMap { threadId ->
+            val (messagesInThread, threadsInThread) = readMessagesFromChannel(readBackUntil, threadId)
+            if (threadsInThread.isNotEmpty()) {
+                throw RuntimeException("found ${threadsInThread.size} sub-threads in ${channelNameCache.lookup(threadId)} of ${channelNameCache.lookup(channelId)}")
             }
+            messagesInThread
         }
+        messagesPerSubChannel.forEach(messages::addAll)
 
         return messages
     }

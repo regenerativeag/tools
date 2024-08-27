@@ -3,32 +3,26 @@ package org.regenagcoop.discord
 import dev.kord.common.entity.DiscordChannel
 import dev.kord.common.entity.Snowflake
 import dev.kord.rest.service.RestClient
-import kotlinx.coroutines.runBlocking
 import org.regenagcoop.discord.model.ChannelId
+import java.util.concurrent.ConcurrentHashMap
 
 class ChannelNameCache(
     private val restClient: RestClient,
 ) {
-    private val cache = mutableMapOf<ChannelId, String>()
+    private val cache = ConcurrentHashMap<ChannelId, String>()
 
-    fun lookup(channelId: ChannelId): String {
-        return synchronized(cache) {
-            if (channelId !in cache) {
-                val channelName = runBlocking {
-                    restClient.channel.getChannel(Snowflake(channelId)).getChannelName()
-                }
-                cache[channelId] = channelName
-            }
-            cache[channelId]!!
+    suspend fun lookup(channelId: ChannelId): String {
+        if (!cache.containsKey(channelId)) {
+            val channelName = restClient.channel.getChannel(Snowflake(channelId)).getChannelName()
+            cache[channelId] = channelName
         }
+        return cache[channelId]!!
     }
 
     fun cacheFrom(channel: DiscordChannel) {
-        synchronized(cache) {
-            val userId = channel.id.value
-            if (userId !in cache) {
-                cache[userId] = channel.getChannelName()
-            }
+        val channelId = channel.id.value
+        if (!cache.containsKey(channelId)) {
+            cache[channelId] = channel.getChannelName()
         }
     }
 

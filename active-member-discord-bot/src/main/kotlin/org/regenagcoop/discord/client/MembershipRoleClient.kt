@@ -1,7 +1,8 @@
 package org.regenagcoop.discord.client
 
-import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
+import org.regenagcoop.coroutine.parallelForEach
+import org.regenagcoop.coroutine.parallelMap
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.RoleId
 import org.regenagcoop.discord.model.UserId
@@ -19,50 +20,47 @@ class MembershipRoleClient(
      *
      * If the user already has some other active member role, remove that role.
      */
-    fun addMembershipRoleToUsers(roleConfig: ActiveMemberConfig.RoleConfig, userIds: Set<UserId>) {
+    suspend fun addMembershipRoleToUsers(roleConfig: ActiveMemberConfig.RoleConfig, userIds: Set<UserId>) {
         val roleId = roleConfig.roleId
-        val userPairs = userIds.map { it to usernameCache.lookup(it) }
         val roleName = roleNameCache.lookup(roleId)
 
-        runBlocking {
-            // TODO: Parallelize requests - https://github.com/regenerativeag/tools/issues/1
-            userPairs.forEach { (userId, username) ->
-                val currentMembershipRoleIds = getCurrentMembershipRoleIds(userId)
-                if (roleId in currentMembershipRoleIds) {
-                    logger.debug { "$username already has role $roleId ($roleName)" }
-                } else {
-                    val roleIdsToRemove = currentMembershipRoleIds - roleId
-                    if (roleIdsToRemove.size > 1) {
-                        logger.warn("Expected at most one role to remove while adding a role to a user... Removing $roleIdsToRemove from $userId")
-                    }
-                    discord.users.removeRolesFromUser(userId, roleIdsToRemove)
-                    discord.users.addRoleToUser(userId, roleId)
-                    postUpgradeOrDowngradeMessage(userId, roleIdsToRemove, roleConfig)
+        val usernames = userIds.parallelMap { usernameCache.lookup(it) }
+
+        userIds.zip(usernames).parallelForEach { (userId, username) ->
+            val currentMembershipRoleIds = getCurrentMembershipRoleIds(userId)
+            if (roleId in currentMembershipRoleIds) {
+                logger.debug { "$username already has role $roleId ($roleName)" }
+            } else {
+                val roleIdsToRemove = currentMembershipRoleIds - roleId
+                if (roleIdsToRemove.size > 1) {
+                    logger.warn("Expected at most one role to remove while adding a role to a user... Removing $roleIdsToRemove from $userId")
                 }
+                discord.users.removeRolesFromUser(userId, roleIdsToRemove)
+                discord.users.addRoleToUser(userId, roleId)
+                postUpgradeOrDowngradeMessage(userId, roleIdsToRemove, roleConfig)
             }
         }
+
     }
 
     /** Remove all membership roles from the given users */
-    fun removeMembershipRolesFromUsers(userIds: Set<UserId>) {
-        runBlocking {
-            userIds.forEach { inactiveMemberId ->
-                val currentMembershipRoleIds = getCurrentMembershipRoleIds(inactiveMemberId)
-                if (currentMembershipRoleIds.isNotEmpty()) {
-                    discord.users.removeRolesFromUser(inactiveMemberId, currentMembershipRoleIds)
-                    postUpgradeOrDowngradeMessage(inactiveMemberId, currentMembershipRoleIds, null)
-                }
+    suspend fun removeMembershipRolesFromUsers(userIds: Set<UserId>) {
+        userIds.forEach { inactiveMemberId ->
+            val currentMembershipRoleIds = getCurrentMembershipRoleIds(inactiveMemberId)
+            if (currentMembershipRoleIds.isNotEmpty()) {
+                discord.users.removeRolesFromUser(inactiveMemberId, currentMembershipRoleIds)
+                postUpgradeOrDowngradeMessage(inactiveMemberId, currentMembershipRoleIds, null)
             }
         }
     }
 
-    private fun getCurrentMembershipRoleIds(userId: UserId): Set<RoleId> {
+    private suspend fun getCurrentMembershipRoleIds(userId: UserId): Set<RoleId> {
         val currentRoleIds = discord.users.getUserRoles(userId)
         val membershipRoleIds = activeMemberConfig.roleConfigs.map { it.roleId }.toSet()
         return currentRoleIds.intersect(membershipRoleIds)
     }
 
-    private fun postUpgradeOrDowngradeMessage(userId: UserId, previousRoleIds: Collection<RoleId>, newRoleConfig: ActiveMemberConfig.RoleConfig?) {
+    private suspend fun postUpgradeOrDowngradeMessage(userId: UserId, previousRoleIds: Collection<RoleId>, newRoleConfig: ActiveMemberConfig.RoleConfig?) {
         val newRoleId = newRoleConfig?.roleId
 
         val roleIdxByRoleId = activeMemberConfig.roleConfigs.mapIndexed { idx, cfg -> cfg.roleId to idx }.toMap()
@@ -80,7 +78,7 @@ class MembershipRoleClient(
         }
     }
 
-    private fun postDowngradeMessage(userId: UserId, previousRoleIds: Collection<RoleId>, newRoleId: RoleId?) {
+    private suspend fun postDowngradeMessage(userId: UserId, previousRoleIds: Collection<RoleId>, newRoleId: RoleId?) {
         val username = usernameCache.lookup(userId)
         val newRoleName = newRoleId?.let { roleNameCache.lookup(newRoleId) }
         val downgradeConfig = activeMemberConfig.downgradeMessageConfig
@@ -89,18 +87,16 @@ class MembershipRoleClient(
         discord.rooms.postMessage(downgradeMessage, downgradeConfig.channel)
     }
 
-
     /**
      * It's possible multiple roles are being removed from the user if there was some manual intervention... or a bug
      * ...If so, join them together into one string
      */
-    private fun concatRolesToString(roleIds: Collection<RoleId>): String? {
+    private suspend fun concatRolesToString(roleIds: Collection<RoleId>): String? {
         return if (roleIds.isEmpty()) {
             null
         } else {
-            roleIds.joinToString("+") { removedRoleId ->
-                roleNameCache.lookup(removedRoleId)
-            }
+            val roleNames = roleIds.parallelMap { roleNameCache.lookup(it) }
+            roleNames.joinToString("+")
         }
     }
 }

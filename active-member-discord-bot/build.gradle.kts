@@ -5,6 +5,7 @@ plugins {
 }
 
 dependencies {
+    implementation(project(":coroutine-lib"))
     implementation(project(":discord-lib"))
     implementation(project(":json-lib"))
 

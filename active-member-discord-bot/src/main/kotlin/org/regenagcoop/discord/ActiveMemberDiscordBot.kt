@@ -30,7 +30,9 @@ class ActiveMemberDiscordBot(
 
     fun login() {
         synchronized(canUpdateRolesOrDbLock) {
-            resetMembershipsClient.cleanReload()
+            runBlocking {
+                resetMembershipsClient.cleanReload()
+            }
         }
 
         scheduleRecurringRoleDowngrading()
@@ -45,18 +47,20 @@ class ActiveMemberDiscordBot(
         }
 
         synchronized(canUpdateRolesOrDbLock) {
-            val (isFirstPostOfDay, postDays) = database.addPost(message.userId, message.date)
-            if (!isFirstPostOfDay) {
-                return
-            }
-            // check roles in reverse order, so that user is granted the highest role they are qualified for
-            for (roleConfig in activeMemberConfig.roleConfigs.reversed()) {
-                val meetsThreshold = meetsThreshold(roleConfig, postDays, LocalDate.now())
-                if (meetsThreshold) {
-                    val roleName = discord.roleNameCache.lookup(roleConfig.roleId)
-                    logger.debug { "(Re)adding $roleName for \"${message.userId}\"." }
-                    membershipRoleClient.addMembershipRoleToUsers(roleConfig, setOf(message.userId))
-                    break
+            runBlocking {
+                val (isFirstPostOfDay, postDays) = database.addPost(message.userId, message.date)
+                if (!isFirstPostOfDay) {
+                    return@runBlocking
+                }
+                // check roles in reverse order, so that user is granted the highest role they are qualified for
+                for (roleConfig in activeMemberConfig.roleConfigs.reversed()) {
+                    val meetsThreshold = meetsThreshold(roleConfig, postDays, LocalDate.now())
+                    if (meetsThreshold) {
+                        val roleName = discord.roleNameCache.lookup(roleConfig.roleId)
+                        logger.debug { "(Re)adding $roleName for \"${message.userId}\"." }
+                        membershipRoleClient.addMembershipRoleToUsers(roleConfig, setOf(message.userId))
+                        break
+                    }
                 }
             }
         }
@@ -83,9 +87,11 @@ class ActiveMemberDiscordBot(
     /** Downgrade roles for those who no longer meet thresholds */
     private fun downgradeRoles() {
         synchronized(canUpdateRolesOrDbLock) {
-            val today = LocalDate.now()
-            val postHistory = database.getPostHistory()
-            resetMembershipsClient.updateMemberRolesGivenPostHistory(postHistory, today)
+            runBlocking {
+                val today = LocalDate.now()
+                val postHistory = database.getPostHistory()
+                resetMembershipsClient.updateMemberRolesGivenPostHistory(postHistory, today)
+            }
         }
     }
 
