@@ -69,7 +69,6 @@ class ActiveMemberDiscordBot(
         val reloadDatabaseJob = launchTopLevelJob("reload database") {
             canUpdateRolesOrDbMutex.withLock {
                 logger.debug { "Reloading Database" }
-                // TODO next: this is failing somewhere with a 400.
                 val postHistory = fetchPostHistoryClient.fetchPostHistory(startupDate)
 
                 logger.debug { "Overwriting post history: $postHistory" }
