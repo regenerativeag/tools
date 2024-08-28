@@ -6,7 +6,6 @@ import dev.kord.gateway.start
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.model.Message
@@ -27,9 +26,9 @@ open class DiscordBot(
                     val channelName = channelNameCache.lookup(this.channelId.value)
                     val userId = this.getUserId()
                     val username = usernameCache.lookup(userId)
-                    val localDate = this.getLocalDate()
+                    val localDate = this.getUtcDate()
                     logger.debug { "Message received from $username on $localDate in $channelName" }
-                    onMessage.invoke(Message(userId, localDate))
+                    onMessage.invoke(Message(userId, this.timestamp))
                 }
             }.launchIn(gateway)
         }

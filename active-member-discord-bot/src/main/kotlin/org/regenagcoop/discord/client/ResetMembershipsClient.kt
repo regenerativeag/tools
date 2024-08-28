@@ -1,12 +1,14 @@
 package org.regenagcoop.discord.client
 
 import mu.KotlinLogging
+import org.regenagcoop.coroutine.parallelForEachIO
 import org.regenagcoop.discord.ActiveMemberDiscordBot
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActiveMemberConfig
 import org.regenagcoop.model.PostHistory
 import java.time.LocalDate
+import java.util.concurrent.ConcurrentHashMap
 
 /** A DiscordClient which posts messages to appropriate rooms when adding/removing roles */
 class ResetMembershipsClient(
@@ -23,11 +25,11 @@ class ResetMembershipsClient(
         // - in the same order as activeMemberConfig.roleConfigs
         // - of which members are in what roles... given the post history, today's date, and the roleConfigs
         val computedMembersSets = ActiveMemberDiscordBot.computeActiveMembers(postHistory, today, activeMemberConfig)
-        val departedMemberIds = mutableSetOf<UserId>()
-        val previousMemberIds = mutableSetOf<UserId>()
+        val departedMemberIds = ConcurrentHashMap.newKeySet<UserId>()
+        val previousMemberIds = ConcurrentHashMap.newKeySet<UserId>()
 
         // 2. Iterate over every role, resetting all members in that role
-        computedMembersSets.zip(activeMemberConfig.roleConfigs).forEach { (members, roleConfig) ->
+        computedMembersSets.zip(activeMemberConfig.roleConfigs).parallelForEachIO { (members, roleConfig) ->
             val result = updateRoleMembers(members, roleConfig)
             departedMemberIds.addAll(result.departedMemberIds)
             previousMemberIds.addAll(result.previousMemberIds)

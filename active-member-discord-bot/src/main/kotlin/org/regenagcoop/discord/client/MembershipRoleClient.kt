@@ -46,7 +46,7 @@ class MembershipRoleClient(
 
     /** Remove all membership roles from the given users */
     suspend fun removeMembershipRolesFromUsers(userIds: Set<UserId>) {
-        userIds.forEach { inactiveMemberId ->
+        userIds.parallelForEachIO { inactiveMemberId ->
             val currentMembershipRoleIds = getCurrentMembershipRoleIds(inactiveMemberId)
             if (currentMembershipRoleIds.isNotEmpty()) {
                 discord.users.removeRolesFromUser(inactiveMemberId, currentMembershipRoleIds)

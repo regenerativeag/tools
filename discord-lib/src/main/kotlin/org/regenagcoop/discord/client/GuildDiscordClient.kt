@@ -8,8 +8,12 @@ import org.regenagcoop.discord.model.ChannelId
 open class GuildDiscordClient(discord: Discord) : DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
 
-    suspend fun getChannels(): List<ChannelId> = restClient.guild.getGuildChannels(sGuildId)
+    suspend fun getTopLevelChannelIds(): List<ChannelId> = restClient.guild.getGuildChannels(sGuildId)
         .filter { it.type != ChannelType.GuildCategory }
+        .onEach { channelNameCache.cacheFrom(it) }
+        .map { it.id.value }
+
+    suspend fun getActiveThreadIds(): List<ChannelId> = restClient.guild.listActiveThreads(sGuildId).threads
         .onEach { channelNameCache.cacheFrom(it) }
         .map { it.id.value }
 }

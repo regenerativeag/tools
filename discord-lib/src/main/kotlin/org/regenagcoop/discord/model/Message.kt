@@ -1,8 +1,14 @@
 package org.regenagcoop.discord.model
 
+import kotlinx.datetime.Instant
+import kotlinx.datetime.toJavaInstant
 import java.time.LocalDate
+import java.time.ZoneOffset
 
 data class Message(
         val userId: UserId,
-        val date: LocalDate,
-)
+        val instant: Instant,
+) {
+        val utcDate: LocalDate
+                get() = LocalDate.ofInstant(instant.toJavaInstant(), ZoneOffset.UTC)
+}

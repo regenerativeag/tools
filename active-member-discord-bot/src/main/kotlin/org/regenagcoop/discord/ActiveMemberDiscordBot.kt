@@ -34,11 +34,42 @@ class ActiveMemberDiscordBot(
     @OptIn(DelicateCoroutinesApi::class)
     fun start() {
         val startupDate = LocalDate.now()
+        val uncaughtExceptionHandler = CoroutineExceptionHandler { _, exception ->
+            logger.error(exception) { "Uncaught Exception" }
+            fun printSuppressedRecursive(throwable: Throwable) {
+                throwable.suppressedExceptions.forEach {
+                    logger.error(it) { "Suppressed Exception" }
+                    printSuppressedRecursive(it)
+                }
+            }
+            printSuppressedRecursive(exception)
+        }
 
-        // Launch a new top-level coroutine in the default thread pool that reloads the database
-        val reloadDatabaseJob = GlobalScope.launch {
+        /**
+         * Launch a new top-level coroutine in the default thread pool
+         * Wait until [dependencies] have succeeded before launching the coroutine
+         */
+        fun launchTopLevelJob(name: String, vararg dependencies: Job, coroutine: suspend () -> Unit): Job {
+            return GlobalScope.launch(uncaughtExceptionHandler) {
+                dependencies.toList().joinAll()
+                val anyDependencyFailed = dependencies.any { it.isCancelled }
+                if (anyDependencyFailed) {
+                    logger.warn { "Not running top-level job '$name' because at least one dependency failed" }
+                } else {
+                    try {
+                        coroutine()
+                    } catch (e: Throwable) {
+                        logger.warn { "Top-level job '$name' failed" }
+                        throw e
+                    }
+                }
+            }
+        }
+
+        val reloadDatabaseJob = launchTopLevelJob("reload database") {
             canUpdateRolesOrDbMutex.withLock {
                 logger.debug { "Reloading Database" }
+                // TODO next: this is failing somewhere with a 400.
                 val postHistory = fetchPostHistoryClient.fetchPostHistory(startupDate)
 
                 logger.debug { "Overwriting post history: $postHistory" }
@@ -47,19 +78,18 @@ class ActiveMemberDiscordBot(
         }
 
         // Reset all roles after the database has been reloaded
-        val resetRolesJob = GlobalScope.launch {
-            reloadDatabaseJob.join()
-
+        val resetRolesJob = launchTopLevelJob("reset roles", reloadDatabaseJob){
             logger.debug { "Resetting roles" }
             val postHistory = database.getPostHistory()
             resetMembershipsClient.resetRolesGivenPostHistory(postHistory, startupDate)
         }
 
         // ENDLESSLY listen for websocket events from discord.
-        val listenForDiscordEventsJob = GlobalScope.launch {
-            reloadDatabaseJob.join() // wait until the database has been reloaded
-            resetRolesJob.join() // wait until roles have been reset
-
+        val listenForDiscordEventsJob = launchTopLevelJob(
+            "listen for events",
+            reloadDatabaseJob,
+            resetRolesJob
+        ) {
             logger.debug { "Listening for discord events" }
             bot.login() // endlessly listen for websocket events from discord
             // Events listened to:
@@ -69,19 +99,17 @@ class ActiveMemberDiscordBot(
         }
 
         // ENDLESSLY do daily tasks
-        val dailyJob = GlobalScope.launch {
-            reloadDatabaseJob.join()
-            resetRolesJob.join()
+        val dailyJob = launchTopLevelJob("daily tasks", reloadDatabaseJob, resetRolesJob) {
             while (true) {
                 // Pause this coroutine until 12:05 am UTC
                 val delayMs = millisUntilNextDailyJobExecution()
                 val nextExecutionLocalTime = LocalDateTime.now().plus(delayMs, ChronoUnit.MILLIS)
-                logger.debug { "Next execution of daily job scheduled for $nextExecutionLocalTime"}
+                logger.debug { "Next execution of daily job scheduled for $nextExecutionLocalTime" }
                 delay(delayMs)
 
-                logger.debug { "Daily Job started"}
+                logger.debug { "Daily Job started" }
 
-                logger.debug{ "Downgrading roles for users who no longer meet threshold" }
+                logger.debug { "Downgrading roles for users who no longer meet threshold" }
                 downgradeRoles()
             }
         }
@@ -105,7 +133,7 @@ class ActiveMemberDiscordBot(
         }
 
         canUpdateRolesOrDbMutex.withLock {
-            val (isFirstPostOfDay, postDays) = database.addPost(message.userId, message.date)
+            val (isFirstPostOfDay, postDays) = database.addPost(message.userId, message.utcDate)
             if (!isFirstPostOfDay) {
                 return
             }
