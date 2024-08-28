@@ -199,7 +199,8 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
                         ?: throw IllegalStateException("Expected all archived threads to have an archiveTimestamp. ${lastArchivedThread.name.value} (${lastArchivedThread.id.value}) was missing an archived timestamp")
                 }
 
-                // Keep fetching until there are no relevant messages returned
+                // Keep fetching until the last archived thread fetched (the oldest one) has no relevant messages
+                // Any further pages of archived threads (even older) will also have no relevant messages
             } while (messagesPerThread.last().isNotEmpty())
         }
 
