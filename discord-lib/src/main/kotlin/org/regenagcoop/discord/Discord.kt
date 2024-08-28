@@ -12,8 +12,6 @@ import org.regenagcoop.discord.model.GuildId
 
 /**
  * A discord client for a given guild/server.
- *
- * // TODO #13: Consider a different RateLimiter - https://github.com/regenerativeag/tools/issues/13
  */
 open class Discord @OptIn(KordUnsafe::class) constructor(
     httpClient: HttpClient,
@@ -23,6 +21,7 @@ open class Discord @OptIn(KordUnsafe::class) constructor(
     val restClient: RestClient = RestClient(
         KtorRequestHandler(
             httpClient,
+            // TODO #13: Consider a different RateLimiter - https://github.com/regenerativeag/tools/issues/13
             requestRateLimiter = ParallelRequestRateLimiter(),
             token = token
         )
