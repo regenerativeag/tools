@@ -123,15 +123,27 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         do {
             // fetch messages from the channel, one page at a time going backwards in history
             val discordMessages = getMessages(channelId, pageSize, lastSeenDiscordMessage)
-            val messages = discordMessages
-                .filter {
-                    it.getUtcDate() >= readBackUntil
-                }
-                .onEach {
-                    messagesInChannel.add(Message(it.getUserId(), it.timestamp))
-                }
-            lastSeenDiscordMessage = discordMessages.lastOrNull()
-        } while (messages.size == pageSize && lastSeenDiscordMessage!!.getUtcDate() >= readBackUntil)
+
+            val lastPage = if (discordMessages.isEmpty()) {
+                // if the page is empty, there are no more messages to fetch
+                true
+            } else {
+                discordMessages
+                    .filter {
+                        it.getUtcDate() >= readBackUntil
+                    }
+                    .onEach {
+                        messagesInChannel.add(Message(it.getUserId(), it.timestamp))
+                    }
+
+                val lastDiscordMessage = discordMessages.last()
+                lastSeenDiscordMessage = lastDiscordMessage
+                // if the last message in this page was older than the date we are interested in... we're done
+                // all future pages will have messages that are older than the last message on this page
+                lastDiscordMessage.getUtcDate() < readBackUntil
+            }
+
+        } while (!lastPage)
 
         return messagesInChannel
     }
