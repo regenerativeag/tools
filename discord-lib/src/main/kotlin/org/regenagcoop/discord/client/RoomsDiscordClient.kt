@@ -139,7 +139,7 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
     private suspend fun fetchArchivedMessagesFromChannel(
         readBackUntil: LocalDate,
         channelId: ChannelId,
-        pageSize: Int = 10,
+        pageSize: Int = 5,
     ): List<Message> {
         val channelName = channelNameCache.lookup(channelId)
         val threadNameAndMessagesPerThread = ConcurrentMutableList<Pair<String, List<Message>>>()
