@@ -147,12 +147,12 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         suspend fun addMessagesFrom(
             listThreadsFunction: suspend (Snowflake, ListThreadsByTimestampRequest) -> ListThreadsResponse
         ) {
-            var lastInstantSeen: Instant? = null
+            var lastArchivedTimestamp: Instant? = null
             do {
                 val archivedThreads = try {
                     listThreadsFunction(
                         Snowflake(channelId),
-                        ListThreadsByTimestampRequest(before = lastInstantSeen, limit = pageSize)
+                        ListThreadsByTimestampRequest(before = lastArchivedTimestamp, limit = pageSize)
                     ).threads
                 } catch(e: KtorRequestException) {
                     val message = e.message
@@ -168,7 +168,7 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
                 }
 
                 if (archivedThreads.isEmpty()) {
-                    break
+                    break // no more threads to fetch
                 }
 
                 val messagesPerThread = archivedThreads.parallelMapIO { archivedThread ->
@@ -181,12 +181,14 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
                     thread.name.value.orEmpty() to messages
                 })
 
-                // Grab the most recent timestamp from the oldest (last) thread
-                lastInstantSeen = messagesPerThread
-                    .last()
-                    .maxOfOrNull { it.instant }
+                // Grab the archived timestamp from the last thread
+                lastArchivedTimestamp = archivedThreads.last().let { lastArchivedThread ->
+                    lastArchivedThread.threadMetadata.value?.archiveTimestamp
+                        ?: throw IllegalStateException("Expected all archived threads to have an archiveTimestamp. ${lastArchivedThread.name.value} (${lastArchivedThread.id.value}) was missing an archived timestamp")
+                }
+
                 // Keep fetching until there are no relevant messages returned
-            } while (lastInstantSeen != null)
+            } while (messagesPerThread.last().isNotEmpty())
         }
 
         // get messages from public and private archived threads in parallel
