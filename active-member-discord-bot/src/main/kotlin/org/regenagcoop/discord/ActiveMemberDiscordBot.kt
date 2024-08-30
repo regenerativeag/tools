@@ -8,9 +8,9 @@ import mu.KotlinLogging
 import org.regenagcoop.Database
 import org.regenagcoop.coroutine.TopLevelJob.Companion.awaitIndefiniteJobs
 import org.regenagcoop.coroutine.TopLevelJob.Companion.createTopLevelJob
-import org.regenagcoop.discord.client.FetchPostHistoryClient
-import org.regenagcoop.discord.client.MembershipRoleClient
-import org.regenagcoop.discord.client.ResetMembershipsClient
+import org.regenagcoop.discord.service.FetchPostHistoryService
+import org.regenagcoop.discord.service.MembershipRoleService
+import org.regenagcoop.discord.service.ResetMembershipsService
 import org.regenagcoop.model.ActiveMemberConfig
 import org.regenagcoop.model.PostHistory
 import org.regenagcoop.discord.model.Message
@@ -28,9 +28,9 @@ class ActiveMemberDiscordBot(
     private val logger = KotlinLogging.logger {  }
     private val canUpdateRolesOrDbMutex = Mutex()
     private val discord = Discord(httpClient, activeMemberConfig.guildId, discordApiToken, dryRun)
-    private val membershipRoleClient = MembershipRoleClient(discord, activeMemberConfig)
-    private val fetchPostHistoryClient = FetchPostHistoryClient(discord, activeMemberConfig)
-    private val resetMembershipsClient = ResetMembershipsClient(discord, membershipRoleClient, activeMemberConfig)
+    private val membershipRoleService = MembershipRoleService(discord, activeMemberConfig)
+    private val fetchPostHistoryService = FetchPostHistoryService(discord, activeMemberConfig)
+    private val resetMembershipsService = ResetMembershipsService(discord, membershipRoleService, activeMemberConfig)
     private val bot = DiscordBot(discord, discordApiToken, onMessage = ::onMessage)
 
     fun start() {
@@ -42,7 +42,7 @@ class ActiveMemberDiscordBot(
         ) {
             canUpdateRolesOrDbMutex.withLock {
                 logger.debug { "Loading Database" }
-                val postHistory = fetchPostHistoryClient.fetchPostHistory(startupDate)
+                val postHistory = fetchPostHistoryService.fetchPostHistory(startupDate)
 
                 logger.debug { "Overwriting post history: $postHistory" }
                 database.overwritePostHistory(postHistory)
@@ -56,7 +56,7 @@ class ActiveMemberDiscordBot(
         ){
             logger.debug { "Resetting roles" }
             val postHistory = database.getPostHistory()
-            resetMembershipsClient.resetRolesGivenPostHistory(postHistory, startupDate)
+            resetMembershipsService.resetRolesGivenPostHistory(postHistory, startupDate)
         }
 
         // ENDLESSLY listen for websocket events from discord.
@@ -114,7 +114,7 @@ class ActiveMemberDiscordBot(
                     val roleName = discord.roleNameCache.lookup(roleConfig.roleId)
                     val username = discord.usernameCache.lookup(message.userId)
                     logger.debug { "(Re)adding $roleName for $username (${message.userId})." }
-                    membershipRoleClient.addMembershipRoleToUsers(roleConfig, setOf(message.userId))
+                    membershipRoleService.addMembershipRoleToUsers(roleConfig, setOf(message.userId))
                     break
                 }
             }
@@ -144,7 +144,7 @@ class ActiveMemberDiscordBot(
         canUpdateRolesOrDbMutex.withLock {
             val today = LocalDate.now()
             val postHistory = database.getPostHistory()
-            resetMembershipsClient.resetRolesGivenPostHistory(postHistory, today)
+            resetMembershipsService.resetRolesGivenPostHistory(postHistory, today)
         }
     }
 
