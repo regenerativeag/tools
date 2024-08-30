@@ -3,6 +3,7 @@ package org.regenagcoop.coroutine
 import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.*
+import kotlin.coroutines.CoroutineContext
 import kotlin.system.exitProcess
 
 open class TopLevelJob(
@@ -14,7 +15,8 @@ open class TopLevelJob(
 
     @OptIn(DelicateCoroutinesApi::class)
     private val coroutineJob: Job by lazy {
-        GlobalScope.launch(uncaughtExceptionHandler) {
+        val uncaughtExceptionHandlerContext = CoroutineExceptionHandler(::uncaughtExceptionHandler)
+        GlobalScope.launch(uncaughtExceptionHandlerContext) {
             try {
                 waitForDependencies()
             } catch(e: Throwable) {
@@ -31,7 +33,18 @@ open class TopLevelJob(
         }
     }
 
-    open val uncaughtExceptionHandler: CoroutineExceptionHandler = CoroutineExceptionHandler { _, exception ->
+    init {
+        launch()
+    }
+
+    suspend fun waitUntilSuccess() {
+        coroutineJob.join()
+        if (coroutineJob.isCancelled) {
+            throw IllegalStateException("TopLevelJob '$name' completed unsuccessfully")
+        }
+    }
+
+    open fun uncaughtExceptionHandler(coroutineContext: CoroutineContext, exception: Throwable) {
         logger.error(exception) { "Uncaught exception in TopLevelJob: $name" }
         suppressedExceptionsHandler(exception.suppressedExceptions)
     }
@@ -40,18 +53,6 @@ open class TopLevelJob(
         suppressedExceptions.forEach { suppressedException ->
             logger.error(suppressedException) { "Suppressed exception in TopLevelJob: $name" }
             suppressedExceptionsHandler(suppressedException.suppressedExceptions) // recurse
-        }
-    }
-
-    init {
-        launch()
-    }
-
-
-    suspend fun waitUntilSuccess() {
-        coroutineJob.join()
-        if (coroutineJob.isCancelled) {
-            throw IllegalStateException("TopLevelJob '$name' completed unsuccessfully")
         }
     }
 
