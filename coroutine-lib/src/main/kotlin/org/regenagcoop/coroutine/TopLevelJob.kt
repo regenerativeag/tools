@@ -21,6 +21,7 @@ open class TopLevelJob(
                 logger.error { "TopLevelJob '$name' refusing to start due to failed dependency" }
                 throw e
             }
+            logger.debug { "Starting TopLevelJob '$name'" }
             try {
                 execute()
             } catch (e: Throwable) {
