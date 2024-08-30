@@ -1,6 +1,7 @@
 package org.regenagcoop.discord.client
 
 import co.touchlab.stately.collections.ConcurrentMutableList
+import dev.kord.common.entity.DiscordChannel
 import dev.kord.common.entity.DiscordMessage
 import dev.kord.common.entity.Snowflake
 import dev.kord.rest.builder.message.AllowedMentionsBuilder
@@ -67,8 +68,7 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
 
         return topLevelChannelIds.zip(topLevelChannelNames).parallelMapIO { (topLevelChannelId, topLevelChannelName) ->
             try {
-                val hasAccess = botHasAccessToChannel(topLevelChannelId)
-                if (!hasAccess) {
+                if (!canBotAccessChannel(topLevelChannelId)) {
                     logger.debug { "Access denied to channel: $topLevelChannelName"}
                     listOf()
                 } else {
@@ -96,7 +96,7 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         }.flatten()
     }
 
-    private suspend fun botHasAccessToChannel(channelId: ChannelId): Boolean = try {
+    private suspend fun canBotAccessChannel(channelId: ChannelId): Boolean = try {
         restClient.channel.getMessages(Snowflake(channelId), limit = 1)
         true
     } catch(e: KtorRequestException) {
@@ -151,7 +151,7 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
     private suspend fun fetchArchivedMessagesFromChannel(
         readBackUntil: LocalDate,
         channelId: ChannelId,
-        pageSize: Int = 5,
+        threadsToScanInParallel: Int = 5,
     ): List<Message> {
         val channelName = channelNameCache.lookup(channelId)
         val threadNameAndMessagesPerThread = ConcurrentMutableList<Pair<String, List<Message>>>()
@@ -161,23 +161,12 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         ) {
             var lastArchivedTimestamp: Instant? = null
             do {
-                val archivedThreads = try {
-                    listThreadsFunction(
-                        Snowflake(channelId),
-                        ListThreadsByTimestampRequest(before = lastArchivedTimestamp, limit = pageSize)
-                    ).threads
-                } catch(e: KtorRequestException) {
-                    val message = e.message
-                    if (e.status.code == 403) {
-                        logger.debug { "Access denied when listing archived threads in '$channelName'. Please ensure the bot has the 'Manage Threads' permission enabled." }
-                        throw e
-                    } else if (e.status.code == 400 && message != null && message.contains("Cannot execute action on this channel type")) {
-                        listOf() // ex: forum channels can't have archived messages listed.
-                    } else {
-                        logger.debug(e) { "Failed fetching archived threads in '$channelName'." }
-                        throw e
-                    }
-                }
+                val archivedThreads = listArchivedThreads(
+                    channelId,
+                    before = lastArchivedTimestamp,
+                    limit = threadsToScanInParallel,
+                    listThreadsFunction = listThreadsFunction,
+                )
 
                 if (archivedThreads.isEmpty()) {
                     break // no more threads to fetch
@@ -217,6 +206,32 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         logger.debug { "finished processing archived threads in $channelName: ${threadNameAndMessagesPerThread.map { it.first }}" }
 
         return threadNameAndMessagesPerThread.flatMap { it.second }
+    }
+
+    private suspend fun listArchivedThreads(
+        channelId: ChannelId,
+        before: Instant? = null,
+        limit: Int = 5,
+        listThreadsFunction: suspend (Snowflake, ListThreadsByTimestampRequest) -> ListThreadsResponse
+    ): List<DiscordChannel> {
+        return try {
+            listThreadsFunction(
+                Snowflake(channelId),
+                ListThreadsByTimestampRequest(before = before, limit = limit)
+            ).threads
+        } catch(e: KtorRequestException) {
+            val message = e.message
+            val channelName = channelNameCache.lookup(channelId)
+            if (e.status.code == 403) {
+                logger.debug { "Access denied when listing archived threads in '$channelName'. Please ensure the bot has the 'Manage Threads' permission enabled." }
+                throw e
+            } else if (e.status.code == 400 && message != null && message.contains("Cannot execute action on this channel type")) {
+                listOf() // ex: forum channels can't have archived messages listed.
+            } else {
+                logger.debug(e) { "Failed fetching archived threads in '$channelName'." }
+                throw e
+            }
+        }
     }
 
     private suspend fun getMessages(channelId: ChannelId, pageSize: Int = 100, before: DiscordMessage? = null): List<DiscordMessage> {
