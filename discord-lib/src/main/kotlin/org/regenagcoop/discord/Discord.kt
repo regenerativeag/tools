@@ -1,5 +1,7 @@
 package org.regenagcoop.discord
 
+import dev.kord.common.annotation.KordUnsafe
+import dev.kord.rest.ratelimit.ParallelRequestRateLimiter
 import dev.kord.rest.request.KtorRequestHandler
 import dev.kord.rest.service.RestClient
 import io.ktor.client.*
@@ -11,12 +13,18 @@ import org.regenagcoop.discord.model.GuildId
 /**
  * A discord client for a given guild/server.
  */
-open class Discord(
+open class Discord @OptIn(KordUnsafe::class) constructor(
     httpClient: HttpClient,
     val guildId: GuildId,
     token: String,
     val dryRun: Boolean,
-    val restClient: RestClient = RestClient(KtorRequestHandler(httpClient, token = token)),
+    val restClient: RestClient = RestClient(
+        KtorRequestHandler(
+            httpClient,
+            requestRateLimiter = ParallelRequestRateLimiter(),
+            token = token
+        )
+    ),
 ) {
 
     val usernameCache = UsernameCache(restClient)

@@ -1,84 +1,60 @@
 package org.regenagcoop.discord.client
 
-import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
-import org.regenagcoop.Database
+import org.regenagcoop.coroutine.parallelForEachIO
 import org.regenagcoop.discord.ActiveMemberDiscordBot
 import org.regenagcoop.discord.Discord
-import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActiveMemberConfig
-import org.regenagcoop.model.MutablePostHistory
 import org.regenagcoop.model.PostHistory
 import java.time.LocalDate
+import java.util.concurrent.ConcurrentHashMap
 
 /** A DiscordClient which posts messages to appropriate rooms when adding/removing roles */
 class ResetMembershipsClient(
     discord: Discord,
-    private val database: Database,
     private val membershipRoleClient: MembershipRoleClient,
     private val activeMemberConfig: ActiveMemberConfig,
 ) : DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
 
-    /** Read the message history, correct any issues in the DB, and correct any issues in people's roles */
-    fun cleanReload() {
-        logger.debug { "Reloading" }
+    suspend fun resetRolesGivenPostHistory(postHistory: PostHistory, today: LocalDate) {
+        // 1. Given the postHistory, compute what members should be in what roles
 
-        val today = LocalDate.now()
-        val postHistory = fetchPostHistory(today)
-
-        logger.debug { "Overwriting post history: $postHistory" }
-        database.overwritePostHistory(postHistory)
-
-        updateMemberRolesGivenPostHistory(postHistory, today)
-
-        logger.debug { "Reload complete" }
-    }
-
-    fun updateMemberRolesGivenPostHistory(postHistory: PostHistory, today: LocalDate) {
-        // Iterate over every role, updating all members in that role
+        // computedMemberSets is a list
+        // - in the same order as activeMemberConfig.roleConfigs
+        // - of which members are in what roles... given the post history, today's date, and the roleConfigs
         val computedMembersSets = ActiveMemberDiscordBot.computeActiveMembers(postHistory, today, activeMemberConfig)
-        val departedMemberIds = mutableSetOf<UserId>()
-        val previousMemberIds = mutableSetOf<UserId>()
-        computedMembersSets.zip(activeMemberConfig.roleConfigs).forEach { (members, roleConfig) ->
+        val departedMemberIds = ConcurrentHashMap.newKeySet<UserId>()
+        val previousMemberIds = ConcurrentHashMap.newKeySet<UserId>()
+
+        // 2. Iterate over every role, resetting all members in that role
+        computedMembersSets.zip(activeMemberConfig.roleConfigs).parallelForEachIO { (members, roleConfig) ->
             val result = updateRoleMembers(members, roleConfig)
             departedMemberIds.addAll(result.departedMemberIds)
             previousMemberIds.addAll(result.previousMemberIds)
         }
 
-        logger.debug { "Members who met a threshold, but left: ${discord.users.mapUserIdsToNames(departedMemberIds)}" }
+        val departedUsernames = discord.users.mapUserIdsToNames(departedMemberIds)
+        logger.debug { "Members who met a threshold, but left: $departedUsernames" }
 
         val currentMemberIds = mutableSetOf<UserId>()
         computedMembersSets.forEach(currentMemberIds::addAll)
 
+        // And finally, remove all roles from members who don't meet any thresholds
         val inactiveMemberIds = previousMemberIds - currentMemberIds
-        logger.debug { "Members who no longer meet a threshold: ${discord.users.mapUserIdsToNames(inactiveMemberIds)}" }
+        val inactiveUsernames = discord.users.mapUserIdsToNames(inactiveMemberIds)
+        logger.debug { "Members who no longer meet a threshold: $inactiveUsernames" }
         membershipRoleClient.removeMembershipRolesFromUsers(inactiveMemberIds)
     }
 
 
-    /** Query dicord for enough recent post history that active member roles can be computed */
-    private fun fetchPostHistory(today: LocalDate): PostHistory {
-        val daysToLookBack = activeMemberConfig.maxWindowSize
-        val postHistory = mutableMapOf<UserId, MutableSet<LocalDate>>()
-        val earliestValidDate = today.minusDays(daysToLookBack - 1L)
-        runBlocking {
-            val channelIds = discord.guild.getChannels()
-            logger.debug { "Found channels: ${channelIds.map {discord.channelNameCache.lookup(it)}}" }
-            channelIds.forEach { channelId ->
-                val messagesInChannel = discord.rooms.readMessagesFromChannelAndSubChannels(earliestValidDate, channelId)
-                postHistory.addHistoryFrom(messagesInChannel)
-            }
-        }
-        return postHistory
-    }
-
     /** Ensure that the role identified by [roleConfig] includes exactly the members in [allMembersInRole] */
-    private fun updateRoleMembers(allMembersInRole: Set<UserId>, roleConfig: ActiveMemberConfig.RoleConfig): UpdateResult {
+    private suspend fun updateRoleMembers(allMembersInRole: Set<UserId>, roleConfig: ActiveMemberConfig.RoleConfig): UpdateResult {
         val roleName = discord.roleNameCache.lookup(roleConfig.roleId)
-        fun log(prefix: String, userIds: Set<UserId>) {
-            logger.debug { "$prefix $roleName (${userIds.size}): ${discord.users.mapUserIdsToNames(userIds).sorted()}" }
+        suspend fun log(prefix: String, userIds: Set<UserId>) {
+            val usernames = discord.users.mapUserIdsToNames(userIds).sorted()
+            logger.debug { "$prefix $roleName (${userIds.size}): $usernames" }
         }
 
         log("Computed members in", allMembersInRole)
@@ -105,14 +81,4 @@ class ResetMembershipsClient(
         /** The users who qualified for the role, but left the server */
         val departedMemberIds: Set<UserId>,
     )
-
-    private fun MutablePostHistory.addHistoryFrom(messages: List<Message>) {
-        messages.forEach { message ->
-            if (message.userId !in this) {
-                this[message.userId] = mutableSetOf(message.date)
-            } else {
-                this[message.userId]!!.add(message.date)
-            }
-        }
-    }
 }

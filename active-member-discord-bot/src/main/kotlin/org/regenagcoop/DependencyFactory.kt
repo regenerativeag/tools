@@ -1,6 +1,7 @@
 package org.regenagcoop
 
 import io.ktor.client.*
+import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.*
 import org.regenagcoop.model.ActiveMemberConfig
 import org.regenagcoop.tools.GlobalObjectMapper
@@ -8,7 +9,10 @@ import java.io.File
 import kotlin.system.exitProcess
 
 class DependencyFactory {
-    fun createHttpClient() = HttpClient {
+    fun createHttpClient() = HttpClient(CIO) {
+        engine {
+            maxConnectionsCount = 100
+        }
         expectSuccess = false
         install(HttpRequestRetry) {
             retryOnServerErrors(3)

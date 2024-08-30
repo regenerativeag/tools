@@ -6,5 +6,5 @@ import org.regenagcoop.discord.model.UserId
 import java.time.LocalDate
 import java.time.ZoneOffset
 
-fun DiscordMessage.getLocalDate() = LocalDate.ofInstant(this.timestamp.toJavaInstant(), ZoneOffset.UTC)
+fun DiscordMessage.getUtcDate() = LocalDate.ofInstant(this.timestamp.toJavaInstant(), ZoneOffset.UTC)
 fun DiscordMessage.getUserId(): UserId = this.author.id.value

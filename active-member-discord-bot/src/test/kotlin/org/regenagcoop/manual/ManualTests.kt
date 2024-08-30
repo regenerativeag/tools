@@ -1,5 +1,6 @@
 package org.regenagcoop.manual
 
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.regenagcoop.*
 import org.regenagcoop.discord.Discord
@@ -33,7 +34,7 @@ class ManualTests {
 
     @Ignore
     @Test
-    fun sendMessage(){
+    fun sendMessage() = runBlocking {
         // configure
         val userId = UserIds.larry
         val channelId = ChannelIds.moderationLog

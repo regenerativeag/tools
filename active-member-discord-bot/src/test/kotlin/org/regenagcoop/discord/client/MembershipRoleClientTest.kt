@@ -9,6 +9,7 @@ import dev.kord.rest.service.RestClient
 import dev.kord.rest.service.UserService
 import io.ktor.client.*
 import io.mockk.*
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import org.regenagcoop.discord.client.MembershipRoleClient
@@ -51,7 +52,7 @@ class MembershipRoleClientTest {
     private val restClient = mockk<RestClient>()
     private val discord = object : Discord(mockk<HttpClient>(), guildId,"test_token", false, restClient) {
         override val rooms = object : RoomsDiscordClient(this) {
-            override fun postMessage(message: String, channelId: ChannelId, usersMentioned: List<UserId>) {
+            override suspend fun postMessage(message: String, channelId: ChannelId, usersMentioned: List<UserId>) {
                 capturedMessages.add(Message(message, channelId))
             }
         }
@@ -61,7 +62,7 @@ class MembershipRoleClientTest {
 
     @ParameterizedTest
     @EnumSource(AddAndRemovalTestCase::class)
-    fun testAddAndRemoveRoles(case: AddAndRemovalTestCase) {
+    fun testAddAndRemoveRoles(case: AddAndRemovalTestCase) = runBlocking {
         setupMocks(case)
 
         if (case.newRoleId != null) {

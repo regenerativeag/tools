@@ -6,7 +6,6 @@ import dev.kord.gateway.start
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.model.Message
@@ -14,11 +13,11 @@ import org.regenagcoop.discord.model.Message
 open class DiscordBot(
     discord: Discord,
     private val discordApiToken: String,
-    private val onMessage: ((Message) -> Unit)? = null,
+    private val onMessage: (suspend (Message) -> Unit)? = null,
 ): DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
 
-    fun login() {
+    suspend fun login() {
         val gateway = DefaultGateway()
 
         if (onMessage != null) {
@@ -27,17 +26,16 @@ open class DiscordBot(
                     val channelName = channelNameCache.lookup(this.channelId.value)
                     val userId = this.getUserId()
                     val username = usernameCache.lookup(userId)
-                    val localDate = this.getLocalDate()
+                    val localDate = this.getUtcDate()
                     logger.debug { "Message received from $username on $localDate in $channelName" }
-                    onMessage.invoke(Message(userId, localDate))
+                    onMessage.invoke(Message(userId, this.timestamp))
                 }
             }.launchIn(gateway)
         }
 
-        runBlocking {
-            gateway.start(discordApiToken) {
-                // use defaults... nothing to do here.
-            }
+        // endlessly listen for events
+        gateway.start(discordApiToken) {
+            // use defaults... nothing to do here.
         }
     }
 }

@@ -1,15 +1,19 @@
 package org.regenagcoop.discord.client
 
+import co.touchlab.stately.collections.ConcurrentMutableList
 import dev.kord.common.entity.DiscordMessage
 import dev.kord.common.entity.Snowflake
 import dev.kord.rest.builder.message.AllowedMentionsBuilder
 import dev.kord.rest.json.request.ListThreadsByTimestampRequest
+import dev.kord.rest.json.response.ListThreadsResponse
 import dev.kord.rest.request.KtorRequestException
 import dev.kord.rest.route.Position
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
+import kotlinx.datetime.Instant
 import mu.KotlinLogging
+import org.regenagcoop.coroutine.parallelMapIO
 import org.regenagcoop.discord.Discord
-import org.regenagcoop.discord.getLocalDate
+import org.regenagcoop.discord.getUtcDate
 import org.regenagcoop.discord.getUserId
 import org.regenagcoop.discord.model.ChannelId
 import org.regenagcoop.discord.model.Message
@@ -19,102 +23,200 @@ import java.time.LocalDate
 open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
 
-    open fun postMessage(message: String, channelId: ChannelId, usersMentioned: List<UserId> = listOf()) {
+    open suspend fun postMessage(
+        message: String,
+        channelId: ChannelId,
+        usersMentioned: List<UserId> = listOf()
+    ) {
         if (dryRun) {
             val channelName = channelNameCache.lookup(channelId)
             logger.info { "Dry run... would have posted: \"$message\" in $channelName."}
         } else {
-            runBlocking {
-                restClient.channel.createMessage((Snowflake(channelId))) {
-                    this.content = message
-                    this.allowedMentions = AllowedMentionsBuilder().also { builder ->
-                        usersMentioned.forEach { userId ->
-                            builder.users.add(Snowflake(userId))
-                        }
+            restClient.channel.createMessage((Snowflake(channelId))) {
+                this.content = message
+                this.allowedMentions = AllowedMentionsBuilder().also { builder ->
+                    usersMentioned.forEach { userId ->
+                        builder.users.add(Snowflake(userId))
                     }
                 }
             }
         }
     }
 
-    fun readMessagesFromChannelAndSubChannels(
-        readBackUntil: LocalDate,
-        channelId: ChannelId,
-    ): List<Message> {
-        val messages = mutableListOf<Message>()
-        val subChannels = mutableSetOf<ChannelId>()
+    suspend fun readMessagesFromActiveThreadsInGuild(readBackUntil: LocalDate): List<Message> {
+        val activeThreadIds = discord.guild.getActiveThreadIds()
+        val activeThreadNames = activeThreadIds.parallelMapIO { discord.channelNameCache.lookup(it) }
+        logger.debug { "Found active threads: $activeThreadNames" }
 
-        runBlocking {
-            val (messagesInChannel, threadsInChannel) = readMessagesFromChannel(readBackUntil, channelId)
-            messages.addAll(messagesInChannel)
-            subChannels.addAll(threadsInChannel)
-
-            val archivedThreadsInChannel = listArchivedThreads(channelId)
-            subChannels.addAll(archivedThreadsInChannel)
-
-            subChannels.forEach { threadId ->
-                val (messagesInThread, threadsInThread) = readMessagesFromChannel(readBackUntil, threadId)
-                if (threadsInThread.isNotEmpty()) {
-                    throw RuntimeException("found ${threadsInThread.size} sub-threads in ${channelNameCache.lookup(threadId)} of ${channelNameCache.lookup(channelId)}")
+        return activeThreadIds.zip(activeThreadNames).parallelMapIO { (activeThreadId, activeThreadName) ->
+            try {
+                discord.rooms.fetchMessagesFromChannel(readBackUntil, activeThreadId)
+            } catch(e: Throwable) {
+                if (e !is CancellationException) {
+                    logger.debug(e) { "Failed to read messages from active thread: $activeThreadName"}
                 }
-                messages.addAll(messagesInThread)
+                throw e
             }
-        }
-
-        return messages
+        }.flatten()
     }
 
-    /** Returns the messages read as well as the sub-channels (threads) discovered while reading messages */
-    private suspend fun readMessagesFromChannel(
+    suspend fun readMessagesFromTopLevelChannelsInGuild(readBackUntil: LocalDate): List<Message> {
+        val topLevelChannelIds = discord.guild.getTopLevelChannelIds()
+        val topLevelChannelNames = topLevelChannelIds.parallelMapIO { discord.channelNameCache.lookup(it) }
+        logger.debug { "Found top-level channels: $topLevelChannelNames" }
+
+        return topLevelChannelIds.zip(topLevelChannelNames).parallelMapIO { (topLevelChannelId, topLevelChannelName) ->
+            try {
+                val hasAccess = botHasAccessToChannel(topLevelChannelId)
+                if (!hasAccess) {
+                    logger.debug { "Access denied to channel: $topLevelChannelName"}
+                    listOf()
+                } else {
+                    coroutineScope {
+                        // Start fetching messages from this top-level channel
+                        val channelMessagesDeferred = async {
+                            fetchMessagesFromChannel(readBackUntil, topLevelChannelId)
+                        }
+
+                        // Start fetching messages from archived threads in this channel
+                        val messagesFromArchivedThreadsDeferred = async {
+                            // fetch relevant messages from relevant archived threads in this channel
+                            fetchArchivedMessagesFromChannel(readBackUntil, topLevelChannelId)
+                        }
+
+                        channelMessagesDeferred.await() + messagesFromArchivedThreadsDeferred.await()
+                    }
+                }
+            } catch(e: Throwable) {
+                if (e !is CancellationException) {
+                    logger.debug(e) { "Failed to read messages from top-level channel: $topLevelChannelName" }
+                }
+                throw e
+            }
+        }.flatten()
+    }
+
+    private suspend fun botHasAccessToChannel(channelId: ChannelId): Boolean = try {
+        restClient.channel.getMessages(Snowflake(channelId), limit = 1)
+        true
+    } catch(e: KtorRequestException) {
+        if (e.status.code == 403) {
+            false
+        } else {
+            val channelName = channelNameCache.lookup(channelId)
+            logger.debug(e) { "Failed to determine whether bot has access to channel $channelName"}
+            throw e
+        }
+    }
+
+
+    private suspend fun fetchMessagesFromChannel(
         readBackUntil: LocalDate,
         channelId: ChannelId,
-        pageSize: Int = 100
-    ): Pair<List<Message>, MutableSet<ChannelId>> {
+        pageSize: Int = 100,
+    ): List<Message> {
         val channelName = channelNameCache.lookup(channelId)
         logger.debug { "Getting messages from '$channelName'" }
         var lastSeenDiscordMessage: DiscordMessage? = null
-        val threadsInChannel = mutableSetOf<ChannelId>()
         val messagesInChannel = mutableListOf<Message>()
+
         do {
+            // fetch messages from the channel, one page at a time going backwards in history
             val discordMessages = getMessages(channelId, pageSize, lastSeenDiscordMessage)
-            val messages = discordMessages
-                .filter {
-                    // TODO: Important ⚠⚠⚠⚠
-                    // Could be missing some posts: if (a) a thread isn't archived and (b) the thread's creation timestamp was before the earliest date and (c) the thread has recent activity... then this fetch would miss activity in that thread.
-                    it.getLocalDate() >= readBackUntil
-                }
-                .onEach {
-                    val subChannel = (it.thread.value)
-                    if (subChannel != null) {
-                        // if this message is the start of a thread
-                        channelNameCache.cacheFrom(subChannel)
-                        threadsInChannel.add(subChannel.id.value)
+
+            val lastPage = if (discordMessages.isEmpty()) {
+                // if the page is empty, there are no more messages to fetch
+                true
+            } else {
+                discordMessages
+                    .filter {
+                        it.getUtcDate() >= readBackUntil
                     }
-                    messagesInChannel.add(Message(it.getUserId(), it.getLocalDate()))
-                }
-            lastSeenDiscordMessage = discordMessages.lastOrNull()
-        } while (messages.size == pageSize && lastSeenDiscordMessage!!.getLocalDate() >= readBackUntil)
-        return messagesInChannel to threadsInChannel
+                    .onEach {
+                        messagesInChannel.add(Message(it.getUserId(), it.timestamp))
+                    }
+
+                val lastDiscordMessage = discordMessages.last()
+                lastSeenDiscordMessage = lastDiscordMessage
+                // if the last message in this page was older than the date we are interested in... we're done
+                // all future pages will have messages that are older than the last message on this page
+                lastDiscordMessage.getUtcDate() < readBackUntil
+            }
+
+        } while (!lastPage)
+
+        return messagesInChannel
     }
 
-    private suspend fun listArchivedThreads(channelId: ChannelId, limit: Int = 100): List<ChannelId> {
-        return try {
-            val archivedChannels = restClient.channel.listPublicArchivedThreads(
-                Snowflake(channelId),
-                ListThreadsByTimestampRequest(limit=limit)
-            ).threads
-            archivedChannels.onEach { channelNameCache.cacheFrom(it) }
-            logger.debug { "found archived threads in channel: ${archivedChannels.map { it.name.value }}" }
-            archivedChannels.map { it.id.value }
-        } catch (e: KtorRequestException) {
-            if (e.status.code == 403) {
-                val channelName = channelNameCache.lookup(channelId)
-                logger.debug { "Access denied for channel '$channelName'" }
-                return listOf()
-            } else {
-                throw e
+    private suspend fun fetchArchivedMessagesFromChannel(
+        readBackUntil: LocalDate,
+        channelId: ChannelId,
+        pageSize: Int = 5,
+    ): List<Message> {
+        val channelName = channelNameCache.lookup(channelId)
+        val threadNameAndMessagesPerThread = ConcurrentMutableList<Pair<String, List<Message>>>()
+
+        suspend fun addMessagesFrom(
+            listThreadsFunction: suspend (Snowflake, ListThreadsByTimestampRequest) -> ListThreadsResponse
+        ) {
+            var lastArchivedTimestamp: Instant? = null
+            do {
+                val archivedThreads = try {
+                    listThreadsFunction(
+                        Snowflake(channelId),
+                        ListThreadsByTimestampRequest(before = lastArchivedTimestamp, limit = pageSize)
+                    ).threads
+                } catch(e: KtorRequestException) {
+                    val message = e.message
+                    if (e.status.code == 403) {
+                        logger.debug { "Access denied when listing archived threads in '$channelName'. Please ensure the bot has the 'Manage Threads' permission enabled." }
+                        throw e
+                    } else if (e.status.code == 400 && message != null && message.contains("Cannot execute action on this channel type")) {
+                        listOf() // ex: forum channels can't have archived messages listed.
+                    } else {
+                        logger.debug(e) { "Failed fetching archived threads in '$channelName'." }
+                        throw e
+                    }
+                }
+
+                if (archivedThreads.isEmpty()) {
+                    break // no more threads to fetch
+                }
+
+                val messagesPerThread = archivedThreads.parallelMapIO { archivedThread ->
+                    channelNameCache.cacheFrom(archivedThread)
+                    val archivedChannelId = archivedThread.id.value
+                    fetchMessagesFromChannel(readBackUntil, archivedChannelId)
+                }
+
+                threadNameAndMessagesPerThread.addAll(archivedThreads.zip(messagesPerThread).map { (thread, messages) ->
+                    thread.name.value.orEmpty() to messages
+                })
+
+                // Grab the archived timestamp from the last thread
+                lastArchivedTimestamp = archivedThreads.last().let { lastArchivedThread ->
+                    lastArchivedThread.threadMetadata.value?.archiveTimestamp
+                        ?: throw IllegalStateException("Expected all archived threads to have an archiveTimestamp. ${lastArchivedThread.name.value} (${lastArchivedThread.id.value}) was missing an archived timestamp")
+                }
+
+                // Keep fetching until the last archived thread fetched (the oldest one) has no relevant messages
+                // Any further pages of archived threads (even older) will also have no relevant messages
+            } while (messagesPerThread.last().isNotEmpty())
+        }
+
+        // get messages from public and private archived threads in parallel
+        coroutineScope {
+            launch {
+                addMessagesFrom(restClient.channel::listPublicArchivedThreads)
+            }
+            launch {
+                addMessagesFrom(restClient.channel::listPrivateArchivedThreads)
             }
         }
+
+        logger.debug { "finished processing archived threads in $channelName: ${threadNameAndMessagesPerThread.map { it.first }}" }
+
+        return threadNameAndMessagesPerThread.flatMap { it.second }
     }
 
     private suspend fun getMessages(channelId: ChannelId, pageSize: Int = 100, before: DiscordMessage? = null): List<DiscordMessage> {
@@ -126,12 +228,8 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
                 position = before?.let { Position.Before(before.id) }
             )
         } catch (e: KtorRequestException) {
-            if (e.status.code == 403) {
-                logger.debug { "Access denied for channel '$channelName'" }
-                listOf()
-            } else {
-                throw e
-            }
+            logger.debug(e) { "Failed fetching messages from $channelName. beforeMessageId=${before?.id?.value}" }
+            throw e
         }
     }
 }
