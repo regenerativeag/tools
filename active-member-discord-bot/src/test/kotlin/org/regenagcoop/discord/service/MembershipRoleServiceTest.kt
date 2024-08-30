@@ -1,4 +1,4 @@
-package org.regenagcoop.discord.client
+package org.regenagcoop.discord.service
 
 import dev.kord.common.entity.DiscordGuildMember
 import dev.kord.common.entity.DiscordRole
@@ -12,21 +12,20 @@ import io.mockk.*
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
-import org.regenagcoop.discord.client.MembershipRoleClient
 import org.regenagcoop.discord.Discord
-import org.regenagcoop.discord.client.RoomsDiscordClient
 import org.regenagcoop.discord.model.ChannelId
 import org.regenagcoop.discord.model.RoleId
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.ChannelIds
 import org.regenagcoop.RoleIds
 import org.regenagcoop.activeMemberConfig
+import org.regenagcoop.discord.client.RoomsDiscordClient
 import org.regenagcoop.guildId
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 
-class MembershipRoleClientTest {
+class MembershipRoleServiceTest {
 
     data class Message(val text: String, val channelId: ChannelId)
 
@@ -57,7 +56,7 @@ class MembershipRoleClientTest {
             }
         }
     }
-    private val membershipRoleClient = MembershipRoleClient(discord, activeMemberConfig)
+    private val membershipRoleService = MembershipRoleService(discord, activeMemberConfig)
 
 
     @ParameterizedTest
@@ -68,7 +67,7 @@ class MembershipRoleClientTest {
         if (case.newRoleId != null) {
             // add/replace a role
             val roleConfig = activeMemberConfig.roleConfigs.single { it.roleId == case.newRoleId }
-            membershipRoleClient.addMembershipRoleToUsers(roleConfig, setOf(case.userId))
+            membershipRoleService.addMembershipRoleToUsers(roleConfig, setOf(case.userId))
             val alreadyHasRole = case.newRoleId in case.currentRoleIds
             if (alreadyHasRole) {
                 assertDeletedRoleIdsFromUser(case.userId, listOf())
@@ -79,7 +78,7 @@ class MembershipRoleClientTest {
             }
         } else {
             // remove all roles
-            membershipRoleClient.removeMembershipRolesFromUsers(setOf(case.userId))
+            membershipRoleService.removeMembershipRolesFromUsers(setOf(case.userId))
             assertDeletedRoleIdsFromUser(case.userId, case.currentRoleIds)
             assertNoRoleIdAdded(case.userId)
         }

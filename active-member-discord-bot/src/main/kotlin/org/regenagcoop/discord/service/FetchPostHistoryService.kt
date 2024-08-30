@@ -1,14 +1,15 @@
-package org.regenagcoop.discord.client
+package org.regenagcoop.discord.service
 
 import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.regenagcoop.discord.Discord
+import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActiveMemberConfig
 import org.regenagcoop.model.PostHistory
 import java.time.LocalDate
 
-class FetchPostHistoryClient(
+class FetchPostHistoryService(
     discord: Discord,
     private val activeMemberConfig: ActiveMemberConfig,
     ) : DiscordClient(discord) {

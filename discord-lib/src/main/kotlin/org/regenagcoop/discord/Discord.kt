@@ -21,6 +21,7 @@ open class Discord @OptIn(KordUnsafe::class) constructor(
     val restClient: RestClient = RestClient(
         KtorRequestHandler(
             httpClient,
+            // TODO #13: Consider a different RateLimiter - https://github.com/regenerativeag/tools/issues/13
             requestRateLimiter = ParallelRequestRateLimiter(),
             token = token
         )

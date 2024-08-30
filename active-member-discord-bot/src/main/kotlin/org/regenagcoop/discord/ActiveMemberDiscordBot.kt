@@ -6,9 +6,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import mu.KotlinLogging
 import org.regenagcoop.Database
-import org.regenagcoop.discord.client.FetchPostHistoryClient
-import org.regenagcoop.discord.client.MembershipRoleClient
-import org.regenagcoop.discord.client.ResetMembershipsClient
+import org.regenagcoop.coroutine.TopLevelJob.Companion.awaitEndlessJobs
+import org.regenagcoop.coroutine.TopLevelJob.Companion.createTopLevelJob
+import org.regenagcoop.discord.service.FetchPostHistoryService
+import org.regenagcoop.discord.service.MembershipRoleService
+import org.regenagcoop.discord.service.ResetMembershipsService
 import org.regenagcoop.model.ActiveMemberConfig
 import org.regenagcoop.model.PostHistory
 import org.regenagcoop.discord.model.Message
@@ -26,68 +28,41 @@ class ActiveMemberDiscordBot(
     private val logger = KotlinLogging.logger {  }
     private val canUpdateRolesOrDbMutex = Mutex()
     private val discord = Discord(httpClient, activeMemberConfig.guildId, discordApiToken, dryRun)
-    private val membershipRoleClient = MembershipRoleClient(discord, activeMemberConfig)
-    private val fetchPostHistoryClient = FetchPostHistoryClient(discord, activeMemberConfig)
-    private val resetMembershipsClient = ResetMembershipsClient(discord, membershipRoleClient, activeMemberConfig)
+    private val membershipRoleService = MembershipRoleService(discord, activeMemberConfig)
+    private val fetchPostHistoryService = FetchPostHistoryService(discord, activeMemberConfig)
+    private val resetMembershipsService = ResetMembershipsService(discord, membershipRoleService, activeMemberConfig)
     private val bot = DiscordBot(discord, discordApiToken, onMessage = ::onMessage)
 
-    @OptIn(DelicateCoroutinesApi::class)
     fun start() {
         val startupDate = LocalDate.now()
-        val uncaughtExceptionHandler = CoroutineExceptionHandler { _, exception ->
-            logger.error(exception) { "Uncaught Exception" }
-            fun printSuppressedRecursive(throwable: Throwable) {
-                throwable.suppressedExceptions.forEach {
-                    logger.error(it) { "Suppressed Exception" }
-                    printSuppressedRecursive(it)
-                }
-            }
-            printSuppressedRecursive(exception)
-        }
 
-        /**
-         * Launch a new top-level coroutine in the default thread pool
-         * Wait until [dependencies] have succeeded before launching the coroutine
-         */
-        fun launchTopLevelJob(name: String, vararg dependencies: Job, coroutine: suspend () -> Unit): Job {
-            return GlobalScope.launch(uncaughtExceptionHandler) {
-                dependencies.toList().joinAll()
-                val anyDependencyFailed = dependencies.any { it.isCancelled }
-                if (anyDependencyFailed) {
-                    logger.warn { "Not running top-level job '$name' because at least one dependency failed" }
-                } else {
-                    try {
-                        coroutine()
-                    } catch (e: Throwable) {
-                        logger.warn { "Top-level job '$name' failed" }
-                        throw e
-                    }
-                }
-            }
-        }
-
-        val reloadDatabaseJob = launchTopLevelJob("reload database") {
+        // Load the in-memory database by fetching from Discord
+        val loadDatabaseJob = createTopLevelJob(
+            name = "load database"
+        ) {
             canUpdateRolesOrDbMutex.withLock {
-                logger.debug { "Reloading Database" }
-                val postHistory = fetchPostHistoryClient.fetchPostHistory(startupDate)
+                logger.debug { "Loading Database" }
+                val postHistory = fetchPostHistoryService.fetchPostHistory(startupDate)
 
                 logger.debug { "Overwriting post history: $postHistory" }
                 database.overwritePostHistory(postHistory)
             }
         }
 
-        // Reset all roles after the database has been reloaded
-        val resetRolesJob = launchTopLevelJob("reset roles", reloadDatabaseJob){
+        // Compute roles from database & reset roles for all users
+        val resetRolesJob = createTopLevelJob(
+            name = "reset roles",
+            dependencies = listOf(loadDatabaseJob)
+        ){
             logger.debug { "Resetting roles" }
             val postHistory = database.getPostHistory()
-            resetMembershipsClient.resetRolesGivenPostHistory(postHistory, startupDate)
+            resetMembershipsService.resetRolesGivenPostHistory(postHistory, startupDate)
         }
 
         // ENDLESSLY listen for websocket events from discord.
-        val listenForDiscordEventsJob = launchTopLevelJob(
-            "listen for events",
-            reloadDatabaseJob,
-            resetRolesJob
+        val listenForDiscordEventsJob = createTopLevelJob(
+            name = "listen for events",
+            dependencies = listOf(loadDatabaseJob, resetRolesJob)
         ) {
             logger.debug { "Listening for discord events" }
             bot.login() // endlessly listen for websocket events from discord
@@ -98,7 +73,10 @@ class ActiveMemberDiscordBot(
         }
 
         // ENDLESSLY do daily tasks
-        val dailyJob = launchTopLevelJob("daily tasks", reloadDatabaseJob, resetRolesJob) {
+        val dailyJob = createTopLevelJob(
+            name = "daily tasks",
+            dependencies = listOf(loadDatabaseJob, resetRolesJob)
+        ) {
             while (true) {
                 // Pause this coroutine until 12:05 am UTC
                 val delayMs = millisUntilNextDailyJobExecution()
@@ -115,14 +93,7 @@ class ActiveMemberDiscordBot(
 
         // In the main thread, block until all jobs are complete
         // Some jobs are endless, so the only way to exit this program is for the user to press Ctl+C or Cmd+C or kill the process.
-        runBlocking {
-            listOf(
-                reloadDatabaseJob,
-                resetRolesJob,
-                listenForDiscordEventsJob,
-                dailyJob
-            ).joinAll()
-        }
+        awaitEndlessJobs(listenForDiscordEventsJob, dailyJob)
     }
 
     /** If this message results in the user meeting an active-member threshold, adjust the user's roles. */
@@ -143,7 +114,7 @@ class ActiveMemberDiscordBot(
                     val roleName = discord.roleNameCache.lookup(roleConfig.roleId)
                     val username = discord.usernameCache.lookup(message.userId)
                     logger.debug { "(Re)adding $roleName for $username (${message.userId})." }
-                    membershipRoleClient.addMembershipRoleToUsers(roleConfig, setOf(message.userId))
+                    membershipRoleService.addMembershipRoleToUsers(roleConfig, setOf(message.userId))
                     break
                 }
             }
@@ -173,7 +144,7 @@ class ActiveMemberDiscordBot(
         canUpdateRolesOrDbMutex.withLock {
             val today = LocalDate.now()
             val postHistory = database.getPostHistory()
-            resetMembershipsClient.resetRolesGivenPostHistory(postHistory, today)
+            resetMembershipsService.resetRolesGivenPostHistory(postHistory, today)
         }
     }
 

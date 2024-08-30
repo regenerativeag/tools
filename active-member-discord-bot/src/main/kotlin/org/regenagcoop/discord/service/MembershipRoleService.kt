@@ -1,15 +1,16 @@
-package org.regenagcoop.discord.client
+package org.regenagcoop.discord.service
 
 import mu.KotlinLogging
 import org.regenagcoop.coroutine.parallelForEachIO
 import org.regenagcoop.coroutine.parallelMapIO
 import org.regenagcoop.discord.Discord
+import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.model.RoleId
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActiveMemberConfig
 
 /** A DiscordClient which posts messages to appropriate rooms when adding/removing roles */
-class MembershipRoleClient(
+class MembershipRoleService(
     discord: Discord,
     private val activeMemberConfig: ActiveMemberConfig,
 ) : DiscordClient(discord) {

@@ -1,9 +1,10 @@
-package org.regenagcoop.discord.client
+package org.regenagcoop.discord.service
 
 import mu.KotlinLogging
 import org.regenagcoop.coroutine.parallelForEachIO
 import org.regenagcoop.discord.ActiveMemberDiscordBot
 import org.regenagcoop.discord.Discord
+import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActiveMemberConfig
 import org.regenagcoop.model.PostHistory
@@ -11,9 +12,9 @@ import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
 
 /** A DiscordClient which posts messages to appropriate rooms when adding/removing roles */
-class ResetMembershipsClient(
+class ResetMembershipsService(
     discord: Discord,
-    private val membershipRoleClient: MembershipRoleClient,
+    private val membershipRoleService: MembershipRoleService,
     private val activeMemberConfig: ActiveMemberConfig,
 ) : DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
@@ -45,7 +46,7 @@ class ResetMembershipsClient(
         val inactiveMemberIds = previousMemberIds - currentMemberIds
         val inactiveUsernames = discord.users.mapUserIdsToNames(inactiveMemberIds)
         logger.debug { "Members who no longer meet a threshold: $inactiveUsernames" }
-        membershipRoleClient.removeMembershipRolesFromUsers(inactiveMemberIds)
+        membershipRoleService.removeMembershipRolesFromUsers(inactiveMemberIds)
     }
 
 
@@ -67,7 +68,7 @@ class ResetMembershipsClient(
         val retainedUserIdsToAdd = discord.users.filterToUsersCurrentlyInGuild(
             userIdsToAdd
         )
-        membershipRoleClient.addMembershipRoleToUsers(roleConfig, retainedUserIdsToAdd)
+        membershipRoleService.addMembershipRoleToUsers(roleConfig, retainedUserIdsToAdd)
 
         return UpdateResult(
             previousMemberIds = currentMemberIds,
