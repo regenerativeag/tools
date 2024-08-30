@@ -6,7 +6,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import mu.KotlinLogging
 import org.regenagcoop.Database
-import org.regenagcoop.coroutine.TopLevelJob.Companion.awaitIndefiniteJobs
+import org.regenagcoop.coroutine.TopLevelJob.Companion.awaitEndlessJobs
 import org.regenagcoop.coroutine.TopLevelJob.Companion.createTopLevelJob
 import org.regenagcoop.discord.service.FetchPostHistoryService
 import org.regenagcoop.discord.service.MembershipRoleService
@@ -93,7 +93,7 @@ class ActiveMemberDiscordBot(
 
         // In the main thread, block until all jobs are complete
         // Some jobs are endless, so the only way to exit this program is for the user to press Ctl+C or Cmd+C or kill the process.
-        awaitIndefiniteJobs(listenForDiscordEventsJob, dailyJob)
+        awaitEndlessJobs(listenForDiscordEventsJob, dailyJob)
     }
 
     /** If this message results in the user meeting an active-member threshold, adjust the user's roles. */

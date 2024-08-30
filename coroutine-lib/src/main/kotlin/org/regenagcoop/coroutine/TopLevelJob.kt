@@ -3,8 +3,9 @@ package org.regenagcoop.coroutine
 import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.*
+import kotlin.system.exitProcess
 
-class TopLevelJob(
+open class TopLevelJob(
     val name: String,
     val dependencies: List<TopLevelJob> = listOf(),
     val execute: suspend () -> Unit,
@@ -29,6 +30,18 @@ class TopLevelJob(
         }
     }
 
+    open val uncaughtExceptionHandler: CoroutineExceptionHandler = CoroutineExceptionHandler { _, exception ->
+        logger.error(exception) { "Uncaught exception in TopLevelJob: $name" }
+        suppressedExceptionsHandler(exception.suppressedExceptions)
+    }
+
+    open fun suppressedExceptionsHandler(suppressedExceptions: List<Throwable>) {
+        suppressedExceptions.forEach { suppressedException ->
+            logger.error(suppressedException) { "Suppressed exception in TopLevelJob: $name" }
+            suppressedExceptionsHandler(suppressedException.suppressedExceptions) // recurse
+        }
+    }
+
     init {
         launch()
     }
@@ -41,20 +54,8 @@ class TopLevelJob(
         }
     }
 
-    open val uncaughtExceptionHandler: CoroutineExceptionHandler =  CoroutineExceptionHandler { _, exception ->
-        logger.error(exception) { "Uncaught exception in TopLevelJob: $name" }
-        suppressedExceptionsHandler(exception.suppressedExceptions)
-    }
-
-    open fun suppressedExceptionsHandler(suppressedExceptions: List<Throwable>) {
-        suppressedExceptions.forEach { suppressedException ->
-            logger.error(suppressedException) { "Suppressed exception in TopLevelJob: $name" }
-            suppressedExceptionsHandler(suppressedException.suppressedExceptions) // recurse
-        }
-    }
-
     private fun launch() {
-        coroutineJob.isCancelled // just accessing the lazy variable will create and start the job
+        coroutineJob // just accessing the lazy variable will create and start the job
     }
 
     private suspend fun waitForDependencies() {
@@ -68,8 +69,17 @@ class TopLevelJob(
     }
 
     companion object {
-        fun awaitIndefiniteJobs(vararg topLevelJobs: TopLevelJob) {
-            // Note: these jobs are not restarted if they fail...
+        private val staticLogger: KLogger = KotlinLogging.logger { }
+
+        fun awaitEndlessJobs(vararg topLevelJobs: TopLevelJob) {
+            // If any indefinite job fails, kill the application (the whole application should be debugged/restarted)
+            topLevelJobs.forEach { topLevelJob ->
+                topLevelJob.coroutineJob.invokeOnCompletion {
+                    staticLogger.warn { "Exiting application because endless TopLevelJob '${topLevelJob.name}' terminated" }
+                    exitProcess(-1)
+                }
+            }
+            // Block on the indefinite jobs to complete (never, unless an exception is unhandled or the user sends SIGINT/SIGKILL).
             runBlocking {
                 topLevelJobs.forEach { it.waitUntilSuccess() }
             }
