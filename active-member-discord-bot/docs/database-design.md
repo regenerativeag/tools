@@ -39,15 +39,12 @@ flowchart LR
         idb[(In-Memory <br/> Database)]
     end
     bot--->|Step 1: read log|log
-    linkStyle 0 stroke:#5f5,stroke-width:2px;
     bot--->|Step 2: scan channels|channels
     bot-->|Step 3: populate in-memory DB|idb
     bot--->|Step 4: record scanned data that was missing in log|log
-    linkStyle 3 stroke:#5f5,stroke-width:2px;
     subgraph Discord
         direction LR
         log[("#db-log" channel)]
-        style log stroke:#5f5,fill:#5c5,stroke-width:2px;
         channels[[all other channels]]
     end
 ```
@@ -84,15 +81,12 @@ flowchart LR
     subgraph Larry
         direction LR
         bot[Bot]-->|Step 1: get users who posted yesterday| idb
-        linkStyle 0 stroke:#5f5,stroke-width:2px;
         idb[(In-Memory <br/> Database)]
     end
     bot-->|Step 2: post a log message 'Users who posted on YYYY/MM/DD: USERID1, USERID2, ...'|log
-    linkStyle 1 stroke:#5f5,stroke-width:2px;
     subgraph Discord
         direction LR
         log[("#db-log" channel)]
-        style log stroke:#5f5,fill:#5c5,stroke-width:2px;
     end
 ```
 
@@ -125,13 +119,10 @@ flowchart LR
         bot[Bot]
         idb[(In-Memory <br/> Database)]
         bot-->|Step 1: Record that user reacted today|idb
-        linkStyle 0 stroke:#5f5,stroke-width:2px;
     end
     bot-->|Step 2: if this is the first time user reacted today, create or edit message in log: 'Users who reacted on YYYY/MM/DD: USERID1, USERID2, ...'|log
-    linkStyle 1 stroke:#5f5,stroke-width:2px;
     subgraph Discord
         direction LR
         log[("#db-log" channel)]
-        style log stroke:#5f5,fill:#5c5,stroke-width:2px;
     end
 ```
