@@ -1,29 +1,18 @@
 package org.regenagcoop
 
 import org.regenagcoop.discord.model.UserId
-import org.regenagcoop.model.ActivityHistory
 import org.regenagcoop.model.PostHistory
 import java.time.LocalDate
 
 class Database {
     private val postHistory = mutableMapOf<UserId, MutableSet<LocalDate>>()
-    private val reactionHistory = mutableMapOf<UserId, MutableSet<LocalDate>>()
-    private var initialized: Boolean = false
-
-    // TODO #16: Use mutex instead of synchronous block
     private val lock = object { }
 
-    fun initialize(activityHistory: ActivityHistory) {
+    fun overwritePostHistory(postHistory: PostHistory) {
         synchronized(lock) {
-            if (initialized) {
-                throw IllegalStateException("database already initialized")
-            }
-            initialized = true
-            activityHistory.postHistory.forEach { (userId, dates) ->
-                postHistory[userId] = dates.toMutableSet()
-            }
-            activityHistory.reactionHistory.forEach { (userId, dates) ->
-                reactionHistory[userId] = dates.toMutableSet()
+            this.postHistory.clear()
+            postHistory.forEach { (userId, dates) ->
+                this.postHistory[userId] = dates.toMutableSet()
             }
         }
     }
