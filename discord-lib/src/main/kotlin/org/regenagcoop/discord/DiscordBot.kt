@@ -9,11 +9,13 @@ import kotlinx.coroutines.flow.onEach
 import mu.KotlinLogging
 import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.model.Message
+import org.regenagcoop.discord.model.Reaction
 
 open class DiscordBot(
     discord: Discord,
     private val discordApiToken: String,
     private val onMessage: (suspend (Message) -> Unit)? = null,
+    private val onReaction: (suspend (Reaction) -> Unit)? = null,
 ): DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
 
@@ -32,6 +34,9 @@ open class DiscordBot(
                 }
             }.launchIn(gateway)
         }
+
+        // TODO #16: listen for reactions
+        throw NotImplementedError()
 
         // endlessly listen for events
         gateway.start(discordApiToken) {
