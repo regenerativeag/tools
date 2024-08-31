@@ -4,7 +4,7 @@
 The database for this bot is split into two components:
 
 #### In-Memory DB
-The bot does all its work through the in-memory database. The in-memory db is a collection of which users posted on which days, and which users reacted on which days. If the number of users who regularly post and/or react is on the order of tens of thousands or less, this in-memory db requires a negligible amount of RAM and allows.
+The bot does all its work through the in-memory database. The in-memory db is a collection of which users posted on which days, and which users reacted on which days. If the number of users who regularly post and/or react is on the order of tens of thousands or less, this in-memory db requires a negligible amount of RAM.
 
 #### Persistence Channel
 The persistence layer is a special discord channel which the in-memory database is persisted to. It has two primary functions.
@@ -20,7 +20,7 @@ This database does not require any DB hosting costs, because the data is persist
 
 This discord bot has no external dependencies except on discord itself, which means other groups can use this bot with little-to-no software experience.
 
-The in-memory database is lightning fast and requires very little RAM for most (all) realistic levels of discord activity.
+The in-memory database is lightning fast and requires very little RAM for realistic levels of discord activity.
 
 The persisted data can be owned, visible, and shared by all discord admins (because it's a discord channel).
 
@@ -34,7 +34,7 @@ Any transfers of admin power are trivial: it's super easy to host the bot by sim
 title: Startup
 ---
 flowchart LR
-    subgraph Larry
+    subgraph Bot
         bot[Bot]
         idb[(In-Memory <br/> Database)]
     end
@@ -58,7 +58,7 @@ Run on startup and at 12:05am UTC every day
 title: ResetRoles
 ---
 flowchart LR
-    subgraph Larry
+    subgraph Bot
         direction LR
         bot[Bot]-->|Step 1: get post history| idb
         idb[(In-Memory <br/> Database)]
@@ -78,7 +78,7 @@ Runs once per day, after ResetRoles runs
 title: RecordPostHistory 
 ---
 flowchart LR
-    subgraph Larry
+    subgraph Bot
         direction LR
         bot[Bot]-->|Step 1: get users who posted yesterday| idb
         idb[(In-Memory <br/> Database)]
@@ -96,7 +96,7 @@ flowchart LR
 title: OnMessageReceived
 ---
 flowchart LR
-    subgraph Larry
+    subgraph Bot
         direction LR
         bot[Bot]-->|Step 1: record that user posted today|idb
         idb[(In-Memory <br/> Database)]
@@ -114,7 +114,7 @@ flowchart LR
 title: OnReaction
 ---
 flowchart LR
-    subgraph Larry
+    subgraph Bot
         direction LR
         bot[Bot]
         idb[(In-Memory <br/> Database)]
