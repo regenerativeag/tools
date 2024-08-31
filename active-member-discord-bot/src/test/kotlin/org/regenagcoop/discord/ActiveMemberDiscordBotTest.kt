@@ -136,6 +136,6 @@ class ActiveMemberDiscordBotTest {
     }
 
     companion object {
-        val today = ActiveMemberDiscordBot.getTodaysDate()
+        val today = LocalDate.now()
     }
 }
