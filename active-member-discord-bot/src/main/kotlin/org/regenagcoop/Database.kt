@@ -18,13 +18,13 @@ class Database {
             if (initialized) {
                 throw IllegalStateException("database already initialized")
             }
+            initialized = true
             activityHistory.postHistory.forEach { (userId, dates) ->
                 postHistory[userId] = dates.toMutableSet()
             }
             activityHistory.reactionHistory.forEach { (userId, dates) ->
                 reactionHistory[userId] = dates.toMutableSet()
             }
-            initialized = true
         }
     }
 
