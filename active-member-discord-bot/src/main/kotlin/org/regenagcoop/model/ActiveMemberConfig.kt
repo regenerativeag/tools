@@ -11,6 +11,7 @@ data class ActiveMemberConfig(
     val excludedUserIds: Set<UserId>, // bots
     val roleConfigs: List<RoleConfig>,
     val downgradeMessageConfig: DowngradeMessageConfig,
+    val persistenceConfig: PersistenceConfig,
 ) {
     private val maxWindowSize: Int = roleConfigs.flatMap {
             listOf(it.keepRoleConfig.windowSize, it.addRoleConfig.windowSize)
@@ -24,6 +25,10 @@ data class ActiveMemberConfig(
         val daysToLookBack = maxWindowSize
         return today.minusDays(daysToLookBack - 1L)
     }
+
+    data class PersistenceConfig(
+        val channel: ChannelId,
+    )
 
     data class RoleConfig(
         val roleId: RoleId,

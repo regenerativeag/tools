@@ -28,12 +28,14 @@ class ActiveMemberDiscordBot(
     private val activeMemberConfig: ActiveMemberConfig,
 ) {
     private val logger = KotlinLogging.logger {  }
+
     private val canUpdateRolesOrDbMutex = Mutex()
     private val discord = Discord(httpClient, activeMemberConfig.guildId, discordApiToken, dryRun)
     private val membershipRoleService = MembershipRoleService(discord, activeMemberConfig)
-    private val persistedActivityService = PersistedActivityService(activeMemberConfig)
+    private val persistedActivityService = PersistedActivityService(discord, activeMemberConfig)
     private val fetchActivityService = FetchActivityService(discord, persistedActivityService)
     private val resetMembershipsService = ResetMembershipsService(discord, membershipRoleService, activeMemberConfig)
+
     private val bot = DiscordBot(
         discord,
         discordApiToken,
@@ -102,9 +104,9 @@ class ActiveMemberDiscordBot(
                 downgradeRoles()
 
                 val yesterday = getTodaysDate().minusDays(1)
-                logger.debug { "Persisting yesterday's ($yesterday) post history" }
-                // TODO #16: implement
-                throw NotImplementedError()
+                val posters = database.getUsersWhoPostedOnDay(yesterday)
+                logger.debug { "Persisting yesterday's ($yesterday) post history: ${posters.sorted()}" }
+                persistedActivityService.persistPostHistoryForDay(yesterday, posters)
             }
         }
 

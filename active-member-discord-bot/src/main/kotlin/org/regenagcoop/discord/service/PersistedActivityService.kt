@@ -1,12 +1,14 @@
 package org.regenagcoop.discord.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActiveMemberConfig
 import org.regenagcoop.model.PostHistory
 import java.time.LocalDate
 
 class PersistedActivityService(
+    private val discord: Discord,
     private val activeMemberConfig: ActiveMemberConfig,
 ) {
     private val logger = KotlinLogging.logger { }
@@ -15,6 +17,12 @@ class PersistedActivityService(
     suspend fun fetchPersistedHistoryByDate(): UsersWhoPostedAndReactedByDate {
         // TODO #16: implement
         throw NotImplementedError()
+    }
+
+    suspend fun persistPostHistoryForDay(date: LocalDate, usersWhoPostedOnDate: Set<UserId>) {
+        val usersStr = usersWhoPostedOnDate.sorted().joinToString { ", " }
+        val message = "Users who posted on $date: $usersStr"
+        discord.rooms.postMessage(message, activeMemberConfig.persistenceConfig.channel)
     }
 
     suspend fun persistMissingPostHistory(
@@ -42,9 +50,8 @@ class PersistedActivityService(
         while (date <= yesterday) {
             if (date !in persistedDates) {
                 logger.debug { "Persisting missing post history for $date" }
-                val usersWhoPosted = usersWhoPostedByDate[date]
-                // TODO #16: persist to persistence channel
-                throw NotImplementedError()
+                val usersWhoPosted = usersWhoPostedByDate[date] ?: setOf()
+                persistPostHistoryForDay(date, usersWhoPosted)
             }
             date = date.plusDays(1)
         }

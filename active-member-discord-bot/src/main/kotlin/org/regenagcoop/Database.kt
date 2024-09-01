@@ -50,6 +50,18 @@ class Database {
         }
     }
 
+    suspend fun getUsersWhoPostedOnDay(date: LocalDate): Set<UserId> {
+        mutex.withLock {
+            val posters = mutableSetOf<UserId>()
+            postHistory.forEach { (userId, postDates) ->
+                if (date in postDates) {
+                    posters.add(userId)
+                }
+            }
+            return posters
+        }
+    }
+
     companion object {
         data class AddPostResult(val isFirstPostOfDay: Boolean, val postDays: Set<LocalDate>)
     }
