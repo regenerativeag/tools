@@ -58,6 +58,7 @@ class ActiveMemberDiscordBotTest {
                         )
                     ),
                     ActiveMemberConfig.DowngradeMessageConfig(0uL, "template"),
+                    ActiveMemberConfig.PersistenceConfig(0uL),
             )
     ) {
         EMPTY(),
