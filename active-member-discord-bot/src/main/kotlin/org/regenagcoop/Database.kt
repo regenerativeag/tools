@@ -1,5 +1,7 @@
 package org.regenagcoop
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActivityHistory
 import org.regenagcoop.model.PostHistory
@@ -10,11 +12,11 @@ class Database {
     private val reactionHistory = mutableMapOf<UserId, MutableSet<LocalDate>>()
     private var initialized: Boolean = false
 
-    // TODO #16: Use mutex instead of synchronous block
-    private val lock = object { }
+    private val mutex = Mutex()
 
-    fun initialize(activityHistory: ActivityHistory) {
-        synchronized(lock) {
+
+    suspend fun initialize(activityHistory: ActivityHistory) {
+        mutex.withLock {
             if (initialized) {
                 throw IllegalStateException("database already initialized")
             }
@@ -28,8 +30,8 @@ class Database {
         }
     }
 
-    fun addPost(userId: UserId, date: LocalDate): AddPostResult {
-        synchronized(lock) {
+    suspend fun addPost(userId: UserId, date: LocalDate): AddPostResult {
+        mutex.withLock {
             if (userId !in postHistory) {
                 postHistory[userId] = mutableSetOf()
             }
@@ -42,8 +44,8 @@ class Database {
         }
     }
 
-    fun getPostHistory(): Map<UserId, Set<LocalDate>> {
-        synchronized(lock) {
+    suspend fun getPostHistory(): Map<UserId, Set<LocalDate>> {
+        mutex.withLock {
             return postHistory.toMap()
         }
     }
