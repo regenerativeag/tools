@@ -8,7 +8,7 @@ import mu.KotlinLogging
 import org.regenagcoop.Database
 import org.regenagcoop.coroutine.TopLevelJob.Companion.awaitEndlessJobs
 import org.regenagcoop.coroutine.TopLevelJob.Companion.createTopLevelJob
-import org.regenagcoop.discord.service.ActivityHistoryService
+import org.regenagcoop.discord.service.FetchActivityService
 import org.regenagcoop.discord.service.MembershipRoleService
 import org.regenagcoop.discord.service.ResetMembershipsService
 import org.regenagcoop.model.ActiveMemberConfig
@@ -16,6 +16,7 @@ import org.regenagcoop.model.PostHistory
 import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.Reaction
 import org.regenagcoop.discord.model.UserId
+import org.regenagcoop.discord.service.PersistedActivityService
 import java.time.*
 import java.time.temporal.ChronoUnit
 
@@ -30,7 +31,8 @@ class ActiveMemberDiscordBot(
     private val canUpdateRolesOrDbMutex = Mutex()
     private val discord = Discord(httpClient, activeMemberConfig.guildId, discordApiToken, dryRun)
     private val membershipRoleService = MembershipRoleService(discord, activeMemberConfig)
-    private val activityHistoryService = ActivityHistoryService(discord, activeMemberConfig)
+    private val persistedActivityService = PersistedActivityService(activeMemberConfig)
+    private val fetchActivityService = FetchActivityService(discord, persistedActivityService)
     private val resetMembershipsService = ResetMembershipsService(discord, membershipRoleService, activeMemberConfig)
     private val bot = DiscordBot(
         discord,
@@ -49,13 +51,13 @@ class ActiveMemberDiscordBot(
         ) {
             canUpdateRolesOrDbMutex.withLock {
                 logger.debug { "Loading Database" }
-                val (activityHistory, persistedDates) = activityHistoryService.fetchActivityHistory(startupDate)
+                val (activityHistory, persistedDates) = fetchActivityService.fetchActivityHistory(startupDate)
 
                 logger.debug { "Initializing in-memory database: $activityHistory" }
                 database.initialize(activityHistory)
 
                 logger.debug { "Persisting missing post history into persistence channel" }
-                activityHistoryService.persistMissingPostHistory(
+                persistedActivityService.persistMissingPostHistory(
                     startupDate,
                     activityHistory.postHistory,
                     persistedDates
