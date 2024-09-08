@@ -6,6 +6,7 @@ guildId: 1162017936656044042
 
 excludedUserIds:
   - 1221517195931156530 # Active Member Bot (Larry)
+  - 1282462880532402206 # Larry2
   - 302050872383242240  # Disboard
   - 476259371912003597  # Discord.me
   - 155149108183695360  # Dyno
