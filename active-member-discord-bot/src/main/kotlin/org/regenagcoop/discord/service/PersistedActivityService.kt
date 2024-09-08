@@ -15,7 +15,15 @@ class PersistedActivityService(
 
     /** Fetch the persisted history from the persistence channel */
     suspend fun fetchPersistedHistoryByDate(): UsersWhoPostedAndReactedByDate {
-        // TODO #16: implement
+        val messagesInPersistenceChannel = discord.rooms.readMessagesFromChannel(
+            activeMemberConfig.persistenceConfig.channel,
+            null
+        )
+        logger.debug { "Found ${messagesInPersistenceChannel.size} messages in persistence channel" }
+        // TODO #16: remove this forEach & continue here!
+        messagesInPersistenceChannel.forEach {
+            logger.debug { it.toString() }
+        }
         throw NotImplementedError()
     }
 

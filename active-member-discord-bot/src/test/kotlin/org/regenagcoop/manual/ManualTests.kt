@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import org.regenagcoop.*
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.client.RoomsDiscordClient
+import org.regenagcoop.discord.service.PersistedActivityService
 import kotlin.test.Ignore
 import kotlin.test.assertEquals
 
@@ -26,7 +27,7 @@ class ManualTests {
                 createHttpClient(),
                 guildId,
                 readDiscordApiToken(),
-                dryRun = true /* */
+                dryRun = true
             )
         }
     }
@@ -34,7 +35,7 @@ class ManualTests {
 
     @Ignore
     @Test
-    fun sendMessage() = runBlocking {
+    fun sendMessage(): Unit = runBlocking {
         // configure
         val userId = UserIds.larry
         val channelId = ChannelIds.moderationLog
@@ -47,5 +48,12 @@ class ManualTests {
         // execute
         val roomsDiscordClient = RoomsDiscordClient(discord)
         roomsDiscordClient.postMessage(message, channelId)
+    }
+
+    @Ignore
+    @Test
+    fun readPersistenceChannel(): Unit = runBlocking {
+        val persistedActivityService = PersistedActivityService(discord, activeMemberConfig)
+        persistedActivityService.fetchPersistedHistoryByDate()
     }
 }

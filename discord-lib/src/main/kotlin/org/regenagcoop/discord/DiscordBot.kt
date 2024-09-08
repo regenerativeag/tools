@@ -30,7 +30,7 @@ open class DiscordBot(
                     val username = usernameCache.lookup(userId)
                     val localDate = this.getUtcDate()
                     logger.debug { "Message received from $username on $localDate in $channelName" }
-                    onMessage.invoke(Message(userId, this.timestamp))
+                    onMessage.invoke(Message(userId, this.timestamp, this.content))
                 }
             }.launchIn(gateway)
         }
