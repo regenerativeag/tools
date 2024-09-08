@@ -15,7 +15,15 @@ class PersistedActivityService(
 
     /** Fetch the persisted history from the persistence channel */
     suspend fun fetchPersistedHistoryByDate(): UsersWhoPostedAndReactedByDate {
-        // TODO #16: implement
+        val messagesInPersistenceChannel = discord.rooms.readMessagesFromChannel(
+            activeMemberConfig.persistenceConfig.channel,
+            null
+        )
+        logger.debug { "Found ${messagesInPersistenceChannel.size} messages in persistence channel" }
+        // TODO #16: remove this forEach & continue here!
+        messagesInPersistenceChannel.forEach {
+            logger.debug { it.toString() }
+        }
         throw NotImplementedError()
     }
 
@@ -59,6 +67,17 @@ class PersistedActivityService(
 
     /** The earliest date we need to scan back to, given what we already have found in the persistence channel */
     fun computeEarliestUnpersistedDate(today: LocalDate, persistedDates: Set<LocalDate>): LocalDate {
+        // Example demonstrating why we don't merely take the max(persistedDates):
+        //
+        // Yesterday, the server was configured to only care about the last 30 days of history, but after a config
+        //   edit, the server now cares about the last 180 days of history. Depending on how many days of history
+        //   have been persisted, it is possible that there's only 30 days of history in the persistence channel, but
+        //   now 180 days of history are needed. In this case, we would need to back-fill the missing 150 days of
+        //   history.
+        //
+        // In this scenario, the bot will fetch history that wasn't needed before, and publish history into the
+        //   persistence out of order. There is no issues with this, if we scan the full persistence channel and don't
+        //   assume the channel is in order.
         val earliestRelevantDate = activeMemberConfig.computeEarliestScanDate(today)
         var earliestUnpersistedDate = earliestRelevantDate
         while (earliestUnpersistedDate in persistedDates) {

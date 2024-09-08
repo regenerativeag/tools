@@ -44,6 +44,16 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         }
     }
 
+
+    /**
+     * Read all the messages from the given channel.
+     * This function only returns messages that are directly posted to the channel.
+     * This function does NOT return messages from threads in the channel.
+     */
+    suspend fun readMessagesFromChannel(channelId: ChannelId, readBackUntil: LocalDate?): List<Message> {
+        return fetchMessagesFromChannel(readBackUntil, channelId)
+    }
+
     suspend fun readMessagesFromActiveThreadsInGuild(readBackUntil: LocalDate): List<Message> {
         val activeThreadIds = discord.guild.getActiveThreadIds()
         val activeThreadNames = activeThreadIds.parallelMapIO { discord.channelNameCache.lookup(it) }
@@ -111,7 +121,7 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
 
 
     private suspend fun fetchMessagesFromChannel(
-        readBackUntil: LocalDate,
+        readBackUntil: LocalDate?,
         channelId: ChannelId,
         pageSize: Int = 100,
     ): List<Message> {
@@ -119,6 +129,12 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         logger.debug { "Getting messages from '$channelName'" }
         var lastSeenDiscordMessage: DiscordMessage? = null
         val messagesInChannel = mutableListOf<Message>()
+
+        val filterFn: (DiscordMessage) -> Boolean = if (readBackUntil == null) {
+            { true }
+        } else {
+            { it.getUtcDate() >= readBackUntil }
+        }
 
         do {
             // fetch messages from the channel, one page at a time going backwards in history
@@ -129,18 +145,22 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
                 true
             } else {
                 discordMessages
-                    .filter {
-                        it.getUtcDate() >= readBackUntil
-                    }
+                    .filter(filterFn)
                     .onEach {
-                        messagesInChannel.add(Message(it.getUserId(), it.timestamp))
+                        messagesInChannel.add(Message(it.getUserId(), it.timestamp, it.content))
                     }
 
                 val lastDiscordMessage = discordMessages.last()
                 lastSeenDiscordMessage = lastDiscordMessage
-                // if the last message in this page was older than the date we are interested in... we're done
-                // all future pages will have messages that are older than the last message on this page
-                lastDiscordMessage.getUtcDate() < readBackUntil
+
+                if (readBackUntil == null) {
+                    // if readBackUntil == null, keep reading until we no messages left
+                    false
+                } else {
+                    // if the last message in this page was older than the date we are interested in... we're done
+                    // all future pages will have messages that are older than the last message on this page
+                    lastDiscordMessage.getUtcDate() < readBackUntil
+                }
             }
 
         } while (!lastPage)
