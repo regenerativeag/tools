@@ -1,0 +1,73 @@
+########################################################################################################################
+# This is the real configuration file used for the regenerative agriculture discord server.
+#
+# You can copy this config and edit it to create your own configuration file for your server.
+#
+# Every time you edit your config, you should restart the gatekeeper bot application so the new config gets read.
+########################################################################################################################
+
+
+
+# Your discord server id
+guildId: 1162017936656044042 # Regenerative Agriculture
+
+
+
+# All the member ids that should not be granted membership roles.
+#
+#   Not all members should be granted roles when they post.
+#
+#   For example, you may not want to give your bot a role when it posts.
+excludedUserIds:
+  - 1282462880532402206 # Gatekeeper Bot
+  - 1221517195931156530 # Larry (Active Member Bot)
+  - 302050872383242240  # Disboard
+  - 476259371912003597  # Discord.me
+  - 155149108183695360  # Dyno
+  - 204255221017214977  # YAGPDB.xyz
+
+
+
+# The membership roles in your server...
+#
+#   This is an ordered list.
+#     - Roles at the top of this list have the lowest priority.
+#     - When a role with a greater priority (lower in this file) is granted to a member, a "welcome message" is posted to
+#     a room.
+#     - When a member is transitioned to a membership role with a lower priority, a "downgrade message" is posted to a
+#     room.
+#
+#   Each membership role is configured as follows
+#     - Grant role X if the user posts on Y unique days in a period of Z days
+#     - Remove role X if the user hasn't posted on at least Y unique days in a period of Z days
+roleConfigs:
+  # Guest
+  - roleId: 1240396803946582056
+    addRoleConfig: # Grant the Guest role if the user posts on at least one day in the last 60 days
+      windowSize: 60
+      minPostDays: 1
+    keepRoleConfig:
+      windowSize: 60
+      minPostDays: 1 # Remove the Guest role if the user hasn't posted on at least one day in the last 60 days
+    welcomeMessageConfig:
+      channel: 1162017937796911209 # connect
+      template: "A warm hello to our newest guest, USER_MENTION :relaxed: Please check out our [Community Guide](https://regenagcoop.org/community-guide/) when you have a moment."
+  # Active Member
+  - roleId: 1223026651340996698
+    addRoleConfig:
+      windowSize: 60
+      minPostDays: 4 # Grant the Active Member role if the member has posted on at least 4 different days (in GMT (UTC) timezone) in the last 60 days
+    keepRoleConfig:
+      windowSize: 30
+      minPostDays: 1 # Remove the Active Member role if the member hasn't posted on at least 1 day in the last 30 days
+    welcomeMessageConfig:
+      channel: 1223262623194153111 # community
+      template: "Welcome to our community, USER_MENTION!"
+
+
+
+# Post this message when a member transitions to a membership role with a lower priority order than the role they had.
+downgradeMessageConfig:
+  channel: 1230667079213125702 # moderation-log
+  template: "USERNAME has transitioned from PREVIOUS_ROLE to CURRENT_ROLE."
+  noRoleName: "Visitor (no role)"
