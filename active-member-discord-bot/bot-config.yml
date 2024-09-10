@@ -40,3 +40,6 @@ downgradeMessageConfig:
   channel: 1230667079213125702
   template: "USERNAME has transitioned from PREVIOUS_ROLE to CURRENT_ROLE."
   noRoleName: "Visitor (no role)"
+
+persistenceConfig:
+  channel: 1279607063646965921
