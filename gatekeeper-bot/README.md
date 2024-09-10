@@ -54,7 +54,8 @@ flowchart LR
 ### Instructions
 
 1. Create and name your bot
-   - Create and register your own bot in the discord developer portal. 
+   - Create and register your own bot in the discord developer portal.
+   - Enable the `Server Members Intent` and `Message Content Intent` for your bot (in the discord developer portal).
    - Directions are bountiful on the internet. Please feel free to ask if you need help. We can link to some instructions or add our own.
    - When you create your bot, you can name it whatever you want. We called ours "Gatekeeper Bot".
 2. Add your new bot to your server
