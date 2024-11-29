@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.model.MutablePostHistory
 import org.regenagcoop.model.PostHistory
 import java.time.LocalDate
 
@@ -14,21 +15,46 @@ class PersistedActivityService(
     private val logger = KotlinLogging.logger { }
 
     /** Fetch the persisted history from the persistence channel */
-    suspend fun fetchPersistedHistoryByDate(): UsersWhoPostedAndReactedByDate {
+    internal suspend fun fetchPersistedHistoryByDate(): UsersWhoPostedAndReactedByDate {
         val messagesInPersistenceChannel = discord.rooms.readMessagesFromChannel(
             activeMemberConfig.persistenceConfig.channel,
             null
         )
         logger.debug { "Found ${messagesInPersistenceChannel.size} messages in persistence channel" }
-        // TODO #16: remove this forEach & continue here!
-        messagesInPersistenceChannel.forEach {
-            logger.debug { it.toString() }
+
+        val persistedHistoryByDate = mutableMapOf<LocalDate, UsersWhoPostedAndReacted>()
+
+        messagesInPersistenceChannel.forEach { message ->
+            val postPrefix = "Users who posted on "
+            val datePlaceholder = "XXXX-XX-XX"
+            val separator  = ": "
+            when {
+                message.text.startsWith(postPrefix) -> {
+                    var remainder = message.text
+                    remainder = remainder.substring(postPrefix.length)
+                    val dateStr = remainder.substring(0, datePlaceholder.length)
+                    remainder = remainder.substring(datePlaceholder.length + separator.length)
+                    val usersStr = remainder
+
+                    val date = LocalDate.parse(dateStr)
+                    val posterIds = usersStr.split(", ").map { it.toULong() }.toSet()
+
+                    val last = persistedHistoryByDate[date]
+                    persistedHistoryByDate[date] = UsersWhoPostedAndReacted(
+                        posterIds + (last?.usersWhoPosted ?: setOf()),
+                        last?.usersWhoReacted ?: setOf()
+                    )
+                }
+                else -> throw IllegalStateException("Unexpected message in persistence channel: ${message.text}")
+            }
+
         }
-        throw NotImplementedError()
+
+        return persistedHistoryByDate
     }
 
     suspend fun persistPostHistoryForDay(date: LocalDate, usersWhoPostedOnDate: Set<UserId>) {
-        val usersStr = usersWhoPostedOnDate.sorted().joinToString { ", " }
+        val usersStr = usersWhoPostedOnDate.sorted().joinToString()
         val message = "Users who posted on $date: $usersStr"
         discord.rooms.postMessage(message, activeMemberConfig.persistenceConfig.channel)
     }
@@ -57,9 +83,11 @@ class PersistedActivityService(
         // doing this sequentially, instead of in parallel, so the persistence channel is easier to read
         while (date <= yesterday) {
             if (date !in persistedDates) {
-                logger.debug { "Persisting missing post history for $date" }
-                val usersWhoPosted = usersWhoPostedByDate[date] ?: setOf()
-                persistPostHistoryForDay(date, usersWhoPosted)
+                val usersWhoPosted = usersWhoPostedByDate[date]
+                if (usersWhoPosted != null) {
+                    logger.debug { "Persisting missing post history for $date" }
+                    persistPostHistoryForDay(date, usersWhoPosted)
+                }
             }
             date = date.plusDays(1)
         }
@@ -87,5 +115,10 @@ class PersistedActivityService(
     }
 }
 
+internal data class UsersWhoPostedAndReacted(
+    val usersWhoPosted: Set<UserId>,
+    val usersWhoReacted: Set<UserId>,
+)
+
 /** Unlike ActivityHistory, this alternative format of ActivityHistory allows us to know which days have been persisted, even if there was no activity on that day */
-internal typealias UsersWhoPostedAndReactedByDate = Map<LocalDate, Pair<Set<UserId>, Set<UserId>>>
+internal typealias UsersWhoPostedAndReactedByDate = Map<LocalDate, UsersWhoPostedAndReacted>

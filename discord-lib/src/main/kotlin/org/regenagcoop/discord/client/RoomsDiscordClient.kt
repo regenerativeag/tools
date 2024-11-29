@@ -50,7 +50,7 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
      * This function only returns messages that are directly posted to the channel.
      * This function does NOT return messages from threads in the channel.
      */
-    suspend fun readMessagesFromChannel(channelId: ChannelId, readBackUntil: LocalDate?): List<Message> {
+    open suspend fun readMessagesFromChannel(channelId: ChannelId, readBackUntil: LocalDate?): List<Message> {
         return fetchMessagesFromChannel(readBackUntil, channelId)
     }
 

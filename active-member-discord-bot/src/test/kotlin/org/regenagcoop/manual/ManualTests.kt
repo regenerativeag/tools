@@ -37,7 +37,7 @@ class ManualTests {
     @Test
     fun sendMessage(): Unit = runBlocking {
         // configure
-        val userId = UserIds.larry
+        val userId = UserIds.gatekeeperBot
         val channelId = ChannelIds.moderationLog
 
         val guestRoleConfig = activeMemberConfig.roleConfigs[0]
