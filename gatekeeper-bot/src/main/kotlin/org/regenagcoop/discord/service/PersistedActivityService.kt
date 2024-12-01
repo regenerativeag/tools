@@ -4,7 +4,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActiveMemberConfig
-import org.regenagcoop.model.MutablePostHistory
 import org.regenagcoop.model.PostHistory
 import java.time.LocalDate
 
