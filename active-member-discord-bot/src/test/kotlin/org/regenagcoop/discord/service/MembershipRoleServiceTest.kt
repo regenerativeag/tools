@@ -20,6 +20,8 @@ import org.regenagcoop.ChannelIds
 import org.regenagcoop.RoleIds
 import org.regenagcoop.activeMemberConfig
 import org.regenagcoop.discord.client.RoomsDiscordClient
+import org.regenagcoop.discord.mock.CapturedMessage
+import org.regenagcoop.discord.mock.DiscordMocker
 import org.regenagcoop.guildId
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -33,30 +35,23 @@ class MembershipRoleServiceTest {
         val userId: UserId,
         val currentRoleIds: List<RoleId>,
         val newRoleId: RoleId?,
-        val expectedMessage: Message?,
+        val expectedMessage: CapturedMessage?,
         val username: String = "Zelda",
     ) {
-        VISITOR_TO_GUEST(1uL, listOf(), RoleIds.guest, Message("A warm hello to our newest guest, <@1> :relaxed: Please check out our [Community Guide](https://regenagcoop.org/community-guide/) when you have a moment.", ChannelIds.connect)),
-        GUEST_TO_VISITOR(2uL, listOf(RoleIds.guest), null, Message("Zelda has transitioned from Guest to Visitor (no role).", ChannelIds.moderationLog)),
+        VISITOR_TO_GUEST(1uL, listOf(), RoleIds.guest, CapturedMessage("A warm hello to our newest guest, <@1> :relaxed: Please check out our [Community Guide](https://regenagcoop.org/community-guide/) when you have a moment.", ChannelIds.connect)),
+        GUEST_TO_VISITOR(2uL, listOf(RoleIds.guest), null, CapturedMessage("Zelda has transitioned from Guest to Visitor (no role).", ChannelIds.moderationLog)),
 
-        GUEST_TO_ACTIVE_MEMBER(3uL, listOf(RoleIds.guest), RoleIds.activeMember, Message("Welcome to our community, <@3>!", ChannelIds.community)),
-        ACTIVE_MEMBER_TO_GUEST(4uL, listOf(RoleIds.activeMember), RoleIds.guest, Message("Zelda has transitioned from Active Member to Guest.", ChannelIds.moderationLog)),
+        GUEST_TO_ACTIVE_MEMBER(3uL, listOf(RoleIds.guest), RoleIds.activeMember, CapturedMessage("Welcome to our community, <@3>!", ChannelIds.community)),
+        ACTIVE_MEMBER_TO_GUEST(4uL, listOf(RoleIds.activeMember), RoleIds.guest, CapturedMessage("Zelda has transitioned from Active Member to Guest.", ChannelIds.moderationLog)),
 
         VISITOR_TO_VISITOR(5uL, listOf(), null, null),
         GUEST_TO_GUEST(6uL, listOf(RoleIds.guest), RoleIds.guest, null),
         ACTIVE_MEMBER_TO_ACTIVE_MEMBER(7uL, listOf(RoleIds.activeMember), RoleIds.activeMember, null);
     }
 
-    private val capturedMessages = mutableListOf<Message>()
     private val restClient = mockk<RestClient>()
-    private val discord = object : Discord(mockk<HttpClient>(), guildId,"test_token", false, restClient) {
-        override val rooms = object : RoomsDiscordClient(this) {
-            override suspend fun postMessage(message: String, channelId: ChannelId, usersMentioned: List<UserId>) {
-                capturedMessages.add(Message(message, channelId))
-            }
-        }
-    }
-    private val membershipRoleService = MembershipRoleService(discord, activeMemberConfig)
+    private val discordMocker = DiscordMocker(restClient)
+    private val membershipRoleService = MembershipRoleService(discordMocker.mock, activeMemberConfig)
 
 
     @ParameterizedTest
@@ -82,7 +77,7 @@ class MembershipRoleServiceTest {
             assertDeletedRoleIdsFromUser(case.userId, case.currentRoleIds)
             assertNoRoleIdAdded(case.userId)
         }
-        assertMessagePosted(case.expectedMessage)
+        discordMocker.assertMessagesPostedEquals(case.expectedMessage)
     }
 
 
@@ -152,16 +147,5 @@ class MembershipRoleServiceTest {
                 guildService.deleteRoleFromGuildMember(Snowflake(guildId), Snowflake(userId), Snowflake(roleId))
             }
         }
-    }
-
-    private fun assertMessagePosted(expectedMessage: Message? = null) {
-        val actualMessage = if (expectedMessage != null) {
-            capturedMessages.single()
-        } else {
-            capturedMessages.also { println(it) }
-            assertTrue(capturedMessages.isEmpty())
-            null
-        }
-        assertEquals(expectedMessage, actualMessage)
     }
 }

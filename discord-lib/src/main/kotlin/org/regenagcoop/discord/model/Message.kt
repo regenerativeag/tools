@@ -8,6 +8,7 @@ import java.time.ZoneOffset
 data class Message(
         val userId: UserId,
         val instant: Instant,
+        val text: String,
 ) {
         val utcDate: LocalDate
                 get() = LocalDate.ofInstant(instant.toJavaInstant(), ZoneOffset.UTC)
