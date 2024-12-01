@@ -72,5 +72,6 @@ downgradeMessageConfig:
   template: "USERNAME has transitioned from PREVIOUS_ROLE to CURRENT_ROLE."
   noRoleName: "Visitor (no role)"
 
+# The channel to log user activity in (e.g. posts & reactions)
 persistenceConfig:
   channel: 1279607063646965921

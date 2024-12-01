@@ -147,6 +147,7 @@ class PersistedActivityServiceTest {
             "Users who posted on 2016-11-10: 2, 33",
             "Users who posted on 2016-08-01: 3, 5",
             "Users who posted on 2016-08-02: 4, 27, 33",
+            "Users who posted on 2022-01-05: "
         ))
 
         // when
@@ -172,6 +173,10 @@ class PersistedActivityServiceTest {
             ),
             LocalDate.of(2016, 8, 2) to UsersWhoPostedAndReacted(
                 setOf(4uL, 27uL, 33uL),
+                setOf()
+            ),
+            LocalDate.of(2022, 1, 5) to UsersWhoPostedAndReacted(
+                setOf(),
                 setOf()
             )
         )

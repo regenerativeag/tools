@@ -36,7 +36,11 @@ class PersistedActivityService(
                     val usersStr = remainder
 
                     val date = LocalDate.parse(dateStr)
-                    val posterIds = usersStr.split(", ").map { it.toULong() }.toSet()
+                    val posterIds = if (usersStr.isBlank()) {
+                        setOf()
+                    } else {
+                        usersStr.split(", ").map { it.toULong() }.toSet()
+                    }
 
                     val last = persistedHistoryByDate[date]
                     persistedHistoryByDate[date] = UsersWhoPostedAndReacted(
