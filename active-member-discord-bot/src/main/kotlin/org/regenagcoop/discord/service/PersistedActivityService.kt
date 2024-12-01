@@ -83,11 +83,9 @@ class PersistedActivityService(
         // doing this sequentially, instead of in parallel, so the persistence channel is easier to read
         while (date <= yesterday) {
             if (date !in persistedDates) {
-                val usersWhoPosted = usersWhoPostedByDate[date]
-                if (usersWhoPosted != null) {
-                    logger.debug { "Persisting missing post history for $date" }
-                    persistPostHistoryForDay(date, usersWhoPosted)
-                }
+                val usersWhoPosted = usersWhoPostedByDate[date] ?: setOf()
+                logger.debug { "Persisting missing post history for $date" }
+                persistPostHistoryForDay(date, usersWhoPosted)
             }
             date = date.plusDays(1)
         }

@@ -32,6 +32,20 @@ class PersistedActivityServiceTest {
         )
     }
 
+    @Test
+    fun persist_No_PostHistoryForDayTest() = runBlocking {
+        // given
+        val today = LocalDate.of(1703, 9, 30)
+
+        // when
+        persistedActivityService.persistPostHistoryForDay(today, setOf())
+
+        // then
+        discordMocker.assertMessagesPostedEquals(
+            CapturedMessage("Users who posted on 1703-09-30: ", ChannelIds.persistenceLog)
+        )
+    }
+
 
     @Nested
     inner class PersistMissingPostHistory {
@@ -69,7 +83,8 @@ class PersistedActivityServiceTest {
 
             // then
             val missingDays = allMessages.size - persistedCount
-            val missingMessages = allMessages.takeLast(missingDays)
+            val emptyMessages = computeExpectedEmptyMessages(today, loadedPostHistory, persistedDates)
+            val missingMessages = emptyMessages + allMessages.takeLast(missingDays)
             discordMocker.assertMessagesPostedEquals(*missingMessages.toTypedArray())
         }
 
@@ -96,12 +111,30 @@ class PersistedActivityServiceTest {
             persistedActivityService.persistMissingPostHistory(today, loadedPostHistory, persistedDates)
 
             // then
-            val missingMessages = listOf(
+            val emptyMessages = computeExpectedEmptyMessages(today, loadedPostHistory, persistedDates)
+            val missingMessages = (emptyMessages + listOf(
                 CapturedMessage("Users who posted on 2003-01-09: 2, 6, 48, 87", ChannelIds.persistenceLog),
                 CapturedMessage("Users who posted on 2003-01-10: 48, 87", ChannelIds.persistenceLog),
-            ) + allMessages.last()
+            ) + allMessages.last()).sortedBy { it.text }
 
             discordMocker.assertMessagesPostedEquals(*missingMessages.toTypedArray())
+        }
+
+        private fun computeExpectedEmptyMessages(
+            today: LocalDate,
+            postHistory: PostHistory,
+            persistedDates: Set<LocalDate>,
+        ): List<CapturedMessage> {
+            val emptyMessages = mutableListOf<CapturedMessage>()
+            val nonEmptyDays = (postHistory.values.flatten() + persistedDates).toSet()
+            var day = activeMemberConfig.computeEarliestScanDate(today)
+            while (day != today) {
+                if (day !in nonEmptyDays) {
+                    emptyMessages.add(CapturedMessage("Users who posted on $day: ", ChannelIds.persistenceLog))
+                }
+                day = day.plusDays(1)
+            }
+            return emptyMessages
         }
     }
 
