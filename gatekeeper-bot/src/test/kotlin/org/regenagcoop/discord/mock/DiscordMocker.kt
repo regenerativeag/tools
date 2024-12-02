@@ -36,8 +36,9 @@ class DiscordMocker(
                     return messagesInChannel[channelId] ?: listOf()
                 }
 
-                override suspend fun postMessage(message: String, channelId: ChannelId, usersMentioned: List<UserId>) {
+                override suspend fun postMessage(message: String, channelId: ChannelId, usersMentioned: List<UserId>): Message {
                     capturedMessages.add(CapturedMessage(message, channelId))
+                    return Message(channelId, Random.Default.nextULong(), UserIds.gatekeeperBot, Clock.System.now(), message)
                 }
             }
         }

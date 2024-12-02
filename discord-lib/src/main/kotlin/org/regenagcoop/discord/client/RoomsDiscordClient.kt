@@ -10,6 +10,7 @@ import dev.kord.rest.json.response.ListThreadsResponse
 import dev.kord.rest.request.KtorRequestException
 import dev.kord.rest.route.Position
 import kotlinx.coroutines.*
+import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import mu.KotlinLogging
 import org.regenagcoop.coroutine.parallelMapIO
@@ -27,12 +28,13 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         message: String,
         channelId: ChannelId,
         usersMentioned: List<UserId> = listOf()
-    ) {
-        if (dryRun) {
+    ): Message {
+        return if (dryRun) {
             val channelName = channelNameCache.lookup(channelId)
-            logger.info { "Dry run... would have posted: \"$message\" in $channelName."}
+            logger.info { "Dry run... would have posted: \"$message\" in $channelName." }
+            Message(channelId, 0uL, 0uL, Clock.System.now(), message)
         } else {
-            restClient.channel.createMessage((Snowflake(channelId))) {
+            val discordMessage = restClient.channel.createMessage((Snowflake(channelId))) {
                 this.content = message
                 this.allowedMentions = AllowedMentionsBuilder().also { builder ->
                     usersMentioned.forEach { userId ->
@@ -40,6 +42,7 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
                     }
                 }
             }
+            discordMessage.toMessage()
         }
     }
 
@@ -47,10 +50,11 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         channelId: ChannelId,
         messageId: MessageId,
         newText: String,
-    ) {
-        restClient.channel.editMessage(Snowflake(channelId), Snowflake(messageId)) {
+    ): Message {
+        val discordMessage = restClient.channel.editMessage(Snowflake(channelId), Snowflake(messageId)) {
             this.content = newText
         }
+        return discordMessage.toMessage()
     }
 
     /**
@@ -155,7 +159,7 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
                 discordMessages
                     .filter(filterFn)
                     .onEach {
-                        messagesInChannel.add(Message(it.getChannelId(), it.getMessageId(), it.getUserId(), it.timestamp, it.content))
+                        messagesInChannel.add(it.toMessage())
                     }
 
                 val lastDiscordMessage = discordMessages.last()
