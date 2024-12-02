@@ -6,9 +6,7 @@ import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.UserId
-import org.regenagcoop.model.ActiveMemberConfig
 import org.regenagcoop.model.ActivityHistory
-import org.regenagcoop.model.PostHistory
 import java.time.LocalDate
 
 class FetchActivityService(
@@ -20,8 +18,8 @@ class FetchActivityService(
     /**
      * Load activity history by reading the persistence channel and scanning any missing data from channels & threads
      */
-    suspend fun fetchActivityHistory(today: LocalDate): Pair<ActivityHistory, Set<LocalDate>> {
-        val persistedHistoryByDate = persistedActivityService.fetchPersistedHistoryByDate()
+    suspend fun fetchActivityHistory(today: LocalDate, persistedHistoryMessages: List<Message>): Pair<ActivityHistory, Set<LocalDate>> {
+        val persistedHistoryByDate = persistedActivityService.computePersistedHistoryByDate(persistedHistoryMessages)
 
         val earliestUnpersistedDate = persistedActivityService.computeEarliestUnpersistedDate(
             today,

@@ -13,11 +13,10 @@ import kotlinx.coroutines.*
 import kotlinx.datetime.Instant
 import mu.KotlinLogging
 import org.regenagcoop.coroutine.parallelMapIO
-import org.regenagcoop.discord.Discord
-import org.regenagcoop.discord.getUtcDate
-import org.regenagcoop.discord.getUserId
+import org.regenagcoop.discord.*
 import org.regenagcoop.discord.model.ChannelId
 import org.regenagcoop.discord.model.Message
+import org.regenagcoop.discord.model.MessageId
 import org.regenagcoop.discord.model.UserId
 import java.time.LocalDate
 
@@ -44,6 +43,15 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         }
     }
 
+    suspend fun editMessage(
+        channelId: ChannelId,
+        messageId: MessageId,
+        newText: String,
+    ) {
+        restClient.channel.editMessage(Snowflake(channelId), Snowflake(messageId)) {
+            this.content = newText
+        }
+    }
 
     /**
      * Read all the messages from the given channel.
@@ -147,7 +155,7 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
                 discordMessages
                     .filter(filterFn)
                     .onEach {
-                        messagesInChannel.add(Message(it.getUserId(), it.timestamp, it.content))
+                        messagesInChannel.add(Message(it.getChannelId(), it.getMessageId(), it.getUserId(), it.timestamp, it.content))
                     }
 
                 val lastDiscordMessage = discordMessages.last()

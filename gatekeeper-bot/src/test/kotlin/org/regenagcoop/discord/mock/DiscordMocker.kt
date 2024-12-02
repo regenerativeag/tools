@@ -13,6 +13,8 @@ import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.guildId
 import java.time.LocalDate
+import kotlin.random.Random
+import kotlin.random.nextULong
 import kotlin.test.assertEquals
 
 class DiscordMocker(
@@ -58,7 +60,8 @@ class DiscordMocker(
 
     fun mockMessagesInChannel(channelId: ChannelId, messages: List<String>) {
         messagesInChannel[channelId] = messages.map {
-            Message(UserIds.gatekeeperBot, Clock.System.now(), it)
+            val messageId = Random.Default.nextULong()
+            Message(channelId, messageId, UserIds.gatekeeperBot, Clock.System.now(), it)
         }
     }
 }

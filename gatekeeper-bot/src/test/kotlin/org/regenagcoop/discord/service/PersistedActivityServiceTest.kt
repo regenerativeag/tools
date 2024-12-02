@@ -151,7 +151,8 @@ class PersistedActivityServiceTest {
         ))
 
         // when
-        val persistedHistory = persistedActivityService.fetchPersistedHistoryByDate()
+        val persistedHistoryMessages = persistedActivityService.fetchPersistedHistoryMessages()
+        val persistedHistory = persistedActivityService.computePersistedHistoryByDate(persistedHistoryMessages)
 
         // then
         val expected = mapOf(

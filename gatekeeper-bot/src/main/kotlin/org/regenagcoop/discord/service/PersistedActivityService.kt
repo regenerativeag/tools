@@ -2,6 +2,7 @@ package org.regenagcoop.discord.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.regenagcoop.discord.Discord
+import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActiveMemberConfig
 import org.regenagcoop.model.PostHistory
@@ -13,17 +14,19 @@ class PersistedActivityService(
 ) {
     private val logger = KotlinLogging.logger { }
 
-    /** Fetch the persisted history from the persistence channel */
-    internal suspend fun fetchPersistedHistoryByDate(): UsersWhoPostedAndReactedByDate {
-        val messagesInPersistenceChannel = discord.rooms.readMessagesFromChannel(
+    suspend fun fetchPersistedHistoryMessages(): List<Message> {
+        val persistedHistoryMessages = discord.rooms.readMessagesFromChannel(
             activeMemberConfig.persistenceConfig.channel,
             null
         )
-        logger.debug { "Found ${messagesInPersistenceChannel.size} messages in persistence channel" }
+        logger.debug { "Found ${persistedHistoryMessages.size} messages in persistence channel" }
+        return persistedHistoryMessages
+    }
 
+    internal fun computePersistedHistoryByDate(persistedHistoryMessages: List<Message>): UsersWhoPostedAndReactedByDate {
         val persistedHistoryByDate = mutableMapOf<LocalDate, UsersWhoPostedAndReacted>()
 
-        messagesInPersistenceChannel.forEach { message ->
+        persistedHistoryMessages.forEach { message ->
             val postPrefix = "Users who posted on "
             val datePlaceholder = "XXXX-XX-XX"
             val separator  = ": "
@@ -56,6 +59,7 @@ class PersistedActivityService(
         return persistedHistoryByDate
     }
 
+    // TODO cleanup: extract to own parallel class of PersistReactionService
     suspend fun persistPostHistoryForDay(date: LocalDate, usersWhoPostedOnDate: Set<UserId>) {
         val usersStr = usersWhoPostedOnDate.sorted().joinToString()
         val message = "Users who posted on $date: $usersStr"

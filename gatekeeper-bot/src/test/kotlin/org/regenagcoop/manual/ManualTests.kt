@@ -54,6 +54,6 @@ class ManualTests {
     @Test
     fun readPersistenceChannel(): Unit = runBlocking {
         val persistedActivityService = PersistedActivityService(discord, activeMemberConfig)
-        persistedActivityService.fetchPersistedHistoryByDate()
+        persistedActivityService.fetchPersistedHistoryMessages()
     }
 }

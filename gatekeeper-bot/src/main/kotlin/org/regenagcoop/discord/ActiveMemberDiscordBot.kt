@@ -8,15 +8,12 @@ import mu.KotlinLogging
 import org.regenagcoop.Database
 import org.regenagcoop.coroutine.TopLevelJob.Companion.awaitEndlessJobs
 import org.regenagcoop.coroutine.TopLevelJob.Companion.createTopLevelJob
-import org.regenagcoop.discord.service.FetchActivityService
-import org.regenagcoop.discord.service.MembershipRoleService
-import org.regenagcoop.discord.service.ResetMembershipsService
 import org.regenagcoop.model.ActiveMemberConfig
 import org.regenagcoop.model.PostHistory
 import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.Reaction
 import org.regenagcoop.discord.model.UserId
-import org.regenagcoop.discord.service.PersistedActivityService
+import org.regenagcoop.discord.service.*
 import java.time.*
 import java.time.temporal.ChronoUnit
 
@@ -35,6 +32,7 @@ class ActiveMemberDiscordBot(
     private val persistedActivityService = PersistedActivityService(discord, activeMemberConfig)
     private val fetchActivityService = FetchActivityService(discord, persistedActivityService)
     private val resetMembershipsService = ResetMembershipsService(discord, membershipRoleService, activeMemberConfig)
+    private var persistReactionService: PersistReactionService? = null // cannot be initialized until persisted history is fetched
 
     private val bot = DiscordBot(
         discord,
@@ -53,7 +51,9 @@ class ActiveMemberDiscordBot(
         ) {
             canUpdateRolesOrDbMutex.withLock {
                 logger.debug { "Loading Database" }
-                val (activityHistory, persistedDates) = fetchActivityService.fetchActivityHistory(startupDate)
+                val persistedHistoryMessages = persistedActivityService.fetchPersistedHistoryMessages()
+                persistReactionService = PersistReactionService(discord, activeMemberConfig, startupDate, persistedHistoryMessages)
+                val (activityHistory, persistedDates) = fetchActivityService.fetchActivityHistory(startupDate, persistedHistoryMessages)
 
                 logger.debug { "Initializing in-memory database: $activityHistory" }
                 database.initialize(activityHistory)
@@ -147,9 +147,11 @@ class ActiveMemberDiscordBot(
         }
 
         canUpdateRolesOrDbMutex.withLock {
-            // TODO #16: add reaction to DB
-            // TODO #16: if this is the user's first reaction of day, persist reaction in persistence channel
-            throw NotImplementedError()
+            val (isFirstReactionOfDay) = database.addReaction(reaction.userId, reaction.utcDate)
+
+            if (isFirstReactionOfDay) {
+                persistReactionService!!.persistReaction(reaction.utcDate, reaction.userId)
+            }
         }
     }
 
