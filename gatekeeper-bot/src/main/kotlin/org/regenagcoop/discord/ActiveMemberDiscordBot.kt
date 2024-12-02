@@ -30,9 +30,10 @@ class ActiveMemberDiscordBot(
     private val discord = Discord(httpClient, activeMemberConfig.guildId, discordApiToken, dryRun)
     private val membershipRoleService = MembershipRoleService(discord, activeMemberConfig)
     private val persistedActivityService = PersistedActivityService(discord, activeMemberConfig)
+    private val persistPostsService = PersistPostsService(discord, activeMemberConfig)
+    private var persistReactionService: PersistReactionService? = null // cannot be initialized until persisted history is fetched
     private val fetchActivityService = FetchActivityService(discord, persistedActivityService)
     private val resetMembershipsService = ResetMembershipsService(discord, membershipRoleService, activeMemberConfig)
-    private var persistReactionService: PersistReactionService? = null // cannot be initialized until persisted history is fetched
 
     private val bot = DiscordBot(
         discord,
@@ -59,7 +60,7 @@ class ActiveMemberDiscordBot(
                 database.initialize(activityHistory)
 
                 logger.debug { "Persisting missing post history into persistence channel" }
-                persistedActivityService.persistMissingPostHistory(
+                persistPostsService.persistMissingPostHistory(
                     startupDate,
                     activityHistory.postHistory,
                     persistedDates
@@ -106,7 +107,7 @@ class ActiveMemberDiscordBot(
                 val yesterday = getTodaysDate().minusDays(1)
                 val posters = database.getUsersWhoPostedOnDay(yesterday)
                 logger.debug { "Persisting yesterday's ($yesterday) post history: ${posters.sorted()}" }
-                persistedActivityService.persistPostHistoryForDay(yesterday, posters)
+                persistPostsService.persistPostHistoryForDay(yesterday, posters)
             }
         }
 
