@@ -32,7 +32,7 @@ class ActiveMemberDiscordBot(
     private val persistedActivityService = PersistedActivityService(discord, activeMemberConfig)
     private val persistPostsService = PersistPostsService(discord, activeMemberConfig)
     private var persistReactionService: PersistReactionService? = null // cannot be initialized until persisted history is fetched
-    private val fetchActivityService = FetchActivityService(discord, persistedActivityService)
+    private val scanActivityService = ScanActivityService(discord, persistedActivityService)
     private val resetMembershipsService = ResetMembershipsService(discord, membershipRoleService, activeMemberConfig)
 
     private val bot = DiscordBot(
@@ -54,7 +54,7 @@ class ActiveMemberDiscordBot(
                 logger.debug { "Loading Database" }
                 val persistedHistoryMessages = persistedActivityService.fetchPersistedHistoryMessages()
                 persistReactionService = PersistReactionService(discord, activeMemberConfig, startupDate, persistedHistoryMessages)
-                val (activityHistory, persistedDates) = fetchActivityService.fetchActivityHistory(startupDate, persistedHistoryMessages)
+                val (activityHistory, persistedDates) = scanActivityService.scanForActivityHistory(startupDate, persistedHistoryMessages)
 
                 logger.debug { "Initializing in-memory database: $activityHistory" }
                 database.initialize(activityHistory)

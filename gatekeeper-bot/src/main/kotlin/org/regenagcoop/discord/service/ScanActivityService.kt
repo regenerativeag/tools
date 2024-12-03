@@ -9,7 +9,7 @@ import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActivityHistory
 import java.time.LocalDate
 
-class FetchActivityService(
+class ScanActivityService(
     discord: Discord,
     private val persistedActivityService: PersistedActivityService,
     ) : DiscordClient(discord) {
@@ -18,7 +18,7 @@ class FetchActivityService(
     /**
      * Load activity history by reading the persistence channel and scanning any missing data from channels & threads
      */
-    suspend fun fetchActivityHistory(today: LocalDate, persistedHistoryMessages: List<Message>): Pair<ActivityHistory, Set<LocalDate>> {
+    suspend fun scanForActivityHistory(today: LocalDate, persistedHistoryMessages: List<Message>): Pair<ActivityHistory, Set<LocalDate>> {
         val persistedHistoryByDate = persistedActivityService.computePersistedHistoryByDate(persistedHistoryMessages)
 
         val earliestUnpersistedDate = persistedActivityService.computeEarliestUnpersistedDate(
