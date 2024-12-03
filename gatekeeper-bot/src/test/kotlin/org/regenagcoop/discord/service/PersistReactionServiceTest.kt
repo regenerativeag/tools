@@ -12,6 +12,7 @@ import org.regenagcoop.discord.mock.DiscordMocker
 import org.regenagcoop.discord.model.Message
 import kotlin.random.Random
 import kotlin.random.nextULong
+import kotlin.test.assertTrue
 
 class PersistReactionServiceTest {
     private val discordMocker = DiscordMocker()
@@ -37,13 +38,13 @@ class PersistReactionServiceTest {
     @EnumSource(DaysDefined::class)
     // case: Yesterday and Today
     // random order: add to yesterday, add to today
-
+    //
     // case: Yesterday, no Today
     // random order: add to yesterday, create today
-
+    //
     // case: no Yesterday, Today
     // random order: create yesterday, add to today
-
+    //
     // case: no Yesterday and no Today
     // random order: create yesterday, create today
     fun `locates yesterday and today messages correctly`(daysDefined: DaysDefined) = runBlocking {
@@ -83,34 +84,27 @@ class PersistReactionServiceTest {
         discordMocker.assertCapturedMessagesEqual(*expectedMessages.toTypedArray())
     }
 
-    // TODO test: posting message out of bounds throws error
-    // case: Today & Yesterday defined
-    // post-day=yesterday-1=error
-    // post-day=yesterday=ok
-    // post-day=today=ok
-    // post-day=tomorrow=ok
-    // post-day=tomorrow+1=error
+    @ParameterizedTest
+    @EnumSource(Day::class)
+    fun `posting message out of bounds throws error`(dayToPostTo: Day) = runBlocking {
+        // given
+        val daysDefined = DaysDefined.entries.random()
+        val messagesInHistoryChannel = generateMessagesFor(daysDefined)
+        val service = PersistReactionService(discordMocker.mock, activeMemberConfig, today, messagesInHistoryChannel)
+        val userId = 515uL
+        val date = today.plusDays(dayToPostTo.offsetDays)
 
-    // case: only Yesterday defined
-    // post-day=yesterday-1=error
-    // post-day=yesterday=ok
-    // post-day=today=ok
-    // post-day=tomorrow=ok
-    // post-day=tomorrow+1=error
+        // when
+        val result = runCatching {
+            service.persistReaction(date, userId)
+        }
 
-    // case: only Today defined
-    // post-day=yesterday-1=error
-    // post-day=yesterday=ok
-    // post-day=today=ok
-    // post-day=tomorrow=ok
-    // post-day=tomorrow+1=error
-
-    // case: no days defined
-    // post-day=yesterday-1=error
-    // post-day=yesterday=ok
-    // post-day=today=ok
-    // post-day=tomorrow=ok
-    // post-day=tomorrow+1=error
+        // then
+        when (dayToPostTo) {
+            Day.TODAY, Day.YESTERDAY, Day.TOMORROW -> assertTrue(result.isSuccess)
+            Day.YESTERDAY_MINUS_ONE, Day.TOMORROW_PLUS_ONE -> assertTrue(result.isFailure)
+        }
+    }
 
 
     // TODO test: posting message for "tomorrow" does swap correctly
