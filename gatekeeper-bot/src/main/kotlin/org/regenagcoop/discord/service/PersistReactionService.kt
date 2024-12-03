@@ -24,6 +24,7 @@ class PersistReactionService(
 
     suspend fun persistReaction(date: LocalDate, userId: UserId) {
         mutex.withLock {
+            // TODO fix bug: should be able to add to yesterday's message even if today's message doesn't exist yet
             if (todayMessageInfo == null) {
                 logger.debug { "Creating new reaction history message for today, $date, starting with userId=$userId" }
                 todayMessageInfo = postNewReactionHistoryMessage(date, userId)
