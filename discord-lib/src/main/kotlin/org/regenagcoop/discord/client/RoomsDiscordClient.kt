@@ -51,10 +51,16 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         messageId: MessageId,
         newText: String,
     ): Message {
-        val discordMessage = restClient.channel.editMessage(Snowflake(channelId), Snowflake(messageId)) {
-            this.content = newText
+        return if (dryRun) {
+            val channelName = channelNameCache.lookup(channelId)
+            logger.info { "Dry run... would have edited: messageId=$messageId in $channelName to say: \"$newText\"" }
+            Message(channelId, messageId, 0uL, Clock.System.now(), newText)
+        } else {
+            val discordMessage = restClient.channel.editMessage(Snowflake(channelId), Snowflake(messageId)) {
+                this.content = newText
+            }
+            discordMessage.toMessage()
         }
-        return discordMessage.toMessage()
     }
 
     /**
