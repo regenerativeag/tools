@@ -7,24 +7,19 @@ import dev.kord.common.entity.Snowflake
 import dev.kord.rest.service.GuildService
 import dev.kord.rest.service.RestClient
 import dev.kord.rest.service.UserService
-import io.ktor.client.*
 import io.mockk.*
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
-import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.ChannelId
 import org.regenagcoop.discord.model.RoleId
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.ChannelIds
 import org.regenagcoop.RoleIds
 import org.regenagcoop.activeMemberConfig
-import org.regenagcoop.discord.client.RoomsDiscordClient
 import org.regenagcoop.discord.mock.CapturedMessage
 import org.regenagcoop.discord.mock.DiscordMocker
 import org.regenagcoop.guildId
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 
 class MembershipRoleServiceTest {
@@ -77,7 +72,7 @@ class MembershipRoleServiceTest {
             assertDeletedRoleIdsFromUser(case.userId, case.currentRoleIds)
             assertNoRoleIdAdded(case.userId)
         }
-        discordMocker.assertMessagesPostedEquals(case.expectedMessage)
+        discordMocker.assertCapturedMessagesEqual(case.expectedMessage)
     }
 
 

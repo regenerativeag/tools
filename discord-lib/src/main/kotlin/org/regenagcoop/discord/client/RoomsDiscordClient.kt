@@ -46,7 +46,7 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         }
     }
 
-    suspend fun editMessage(
+    open suspend fun editMessage(
         channelId: ChannelId,
         messageId: MessageId,
         newText: String,

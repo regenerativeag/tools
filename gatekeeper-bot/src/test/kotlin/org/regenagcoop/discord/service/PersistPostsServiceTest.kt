@@ -26,7 +26,7 @@ class PersistPostsServiceTest {
         persistPostsService.persistPostHistoryForDay(today, usersWhoPosted)
 
         // then
-        discordMocker.assertMessagesPostedEquals(
+        discordMocker.assertCapturedMessagesEqual(
             CapturedMessage("Users who posted on 1703-09-30: 0, 5, 10, 7777777", ChannelIds.persistenceLog)
         )
     }
@@ -40,7 +40,7 @@ class PersistPostsServiceTest {
         persistPostsService.persistPostHistoryForDay(today, setOf())
 
         // then
-        discordMocker.assertMessagesPostedEquals(
+        discordMocker.assertCapturedMessagesEqual(
             CapturedMessage("Users who posted on 1703-09-30: ", ChannelIds.persistenceLog)
         )
     }
@@ -84,7 +84,7 @@ class PersistPostsServiceTest {
             val missingDays = allMessages.size - persistedCount
             val emptyMessages = computeExpectedEmptyMessages(today, loadedPostHistory, persistedDates)
             val missingMessages = emptyMessages + allMessages.takeLast(missingDays)
-            discordMocker.assertMessagesPostedEquals(*missingMessages.toTypedArray())
+            discordMocker.assertCapturedMessagesEqual(*missingMessages.toTypedArray())
         }
 
         @Test
@@ -116,7 +116,7 @@ class PersistPostsServiceTest {
                 CapturedMessage("Users who posted on 2003-01-10: 48, 87", ChannelIds.persistenceLog),
             ) + allMessages.last()).sortedBy { it.text }
 
-            discordMocker.assertMessagesPostedEquals(*missingMessages.toTypedArray())
+            discordMocker.assertCapturedMessagesEqual(*missingMessages.toTypedArray())
         }
 
         private fun computeExpectedEmptyMessages(
