@@ -10,6 +10,7 @@ import org.regenagcoop.discord.ActiveMemberDiscordBot
 import org.regenagcoop.discord.mock.CapturedMessage
 import org.regenagcoop.discord.mock.DiscordMocker
 import org.regenagcoop.discord.model.Message
+import org.regenagcoop.discord.model.UserId
 import kotlin.random.Random
 import kotlin.random.nextULong
 import kotlin.test.assertTrue
@@ -34,23 +35,41 @@ class PersistReactionServiceTest {
         TOMORROW_PLUS_ONE(2)
     }
 
+    enum class LocateTestCase(
+        val daysDefined: DaysDefined,
+        val yesterdayExpectation: CapturedMessage.Type, // what we expect to happen when we post to yesterday
+        val todayExpectation: CapturedMessage.Type, // what we expect to happen when we post to today
+    ) {
+        YESTERDAY_AND_TODAY_DEFINED(
+            DaysDefined.YESTERDAY_AND_TODAY,
+            CapturedMessage.Type.EDIT,
+            CapturedMessage.Type.EDIT
+        ),
+        ONLY_YESTERDAY_DEFINED(
+            DaysDefined.YESTERDAY_ONLY,
+            CapturedMessage.Type.EDIT,
+            CapturedMessage.Type.CREATE
+        ),
+        ONLY_TODAY_DEFINED(
+            DaysDefined.TODAY_ONLY,
+            CapturedMessage.Type.CREATE,
+            CapturedMessage.Type.EDIT
+        ),
+        NO_DAYS_DEFINED(
+            DaysDefined.NO_DAYS,
+            CapturedMessage.Type.CREATE,
+            CapturedMessage.Type.CREATE
+        )
+    }
+
     @ParameterizedTest
-    @EnumSource(DaysDefined::class)
-    // case: Yesterday and Today
-    // random order: add to yesterday, add to today
-    //
-    // case: Yesterday, no Today
-    // random order: add to yesterday, create today
-    //
-    // case: no Yesterday, Today
-    // random order: create yesterday, add to today
-    //
-    // case: no Yesterday and no Today
-    // random order: create yesterday, create today
-    fun `locates yesterday and today messages correctly`(daysDefined: DaysDefined) = runBlocking {
+    @EnumSource(LocateTestCase::class)
+    fun `locates and adds to or creates yesterday and today messages correctly`(
+        case: LocateTestCase
+    ) = runBlocking {
         // given
         val daysToPostTo = listOf(Day.YESTERDAY, Day.TODAY).shuffled()
-        val messagesInHistoryChannel = generateMessagesFor(daysDefined)
+        val messagesInHistoryChannel = generateMessagesFor(case.daysDefined)
         val service = PersistReactionService(discordMocker.mock, activeMemberConfig, today, messagesInHistoryChannel)
         val userIds = listOf(222uL, 888uL).shuffled()
 
@@ -62,23 +81,12 @@ class PersistReactionServiceTest {
 
         // then
         val expectedMessages = daysToPostTo.zip(userIds).map { (dayToPostTo, userId) ->
-            val messageType = when (daysDefined) {
-                DaysDefined.NO_DAYS -> CapturedMessage.Type.CREATE
-                DaysDefined.TODAY_ONLY -> if (dayToPostTo == Day.TODAY) CapturedMessage.Type.EDIT else CapturedMessage.Type.CREATE
-                DaysDefined.YESTERDAY_ONLY -> if (dayToPostTo == Day.YESTERDAY) CapturedMessage.Type.EDIT else CapturedMessage.Type.CREATE
-                DaysDefined.YESTERDAY_AND_TODAY -> CapturedMessage.Type.EDIT
+            val expectation = when (dayToPostTo) {
+                Day.YESTERDAY -> case.yesterdayExpectation
+                Day.TODAY -> case.todayExpectation
+                else -> throw IllegalArgumentException("Test misconfigured")
             }
-            val date = today.plusDays(dayToPostTo.offsetDays)
-            val text = if (messageType == CapturedMessage.Type.CREATE) {
-                "Users who reacted on $date: $userId"
-            } else {
-                when (dayToPostTo) {
-                    Day.TODAY -> "Users who reacted on $date: 9, 10, $userId"
-                    Day.YESTERDAY -> "Users who reacted on $date: 11, 12, $userId"
-                    else -> throw IllegalArgumentException("Test misconfigured")
-                }
-            }
-            CapturedMessage(text, activeMemberConfig.persistenceConfig.channel, messageType)
+            generateExpectedCapturedMessageFor(dayToPostTo, userId, expectation)
         }
 
         discordMocker.assertCapturedMessagesEqual(*expectedMessages.toTypedArray())
@@ -107,22 +115,76 @@ class PersistReactionServiceTest {
     }
 
 
-    // TODO test: posting message for "tomorrow" does swap correctly
-    // case: Today & Yesterday defined
-    // post to tomorrow->create new today
-    // random order: post to old today->add. post to old yesterday->error. post to new today->add.
+    enum class TomorrowTestCase(
+        val daysDefined: DaysDefined,
+        val oldTodayExpectation: CapturedMessage.Type, // after creating a new today by adding a reaction with tomorrow's date, what do we expect to happen when we post to the old today (i.e. the new yesterday)?
+    ) {
+        YESTERDAY_AND_TODAY_DEFINED(
+            DaysDefined.YESTERDAY_AND_TODAY,
+            CapturedMessage.Type.EDIT
+        ),
+        ONLY_YESTERDAY_DEFINED(
+            DaysDefined.YESTERDAY_ONLY,
+            CapturedMessage.Type.CREATE
+        ),
+        ONLY_TODAY_DEFINED(
+            DaysDefined.TODAY_ONLY,
+            CapturedMessage.Type.EDIT
+        ),
+        NO_DAYS_DEFINED(
+            DaysDefined.NO_DAYS,
+            CapturedMessage.Type.CREATE
+        )
+    }
 
-    // case: only yesterday defined
-    // post to tomorrow->create new today
-    // random order: post to old today->create. post to old yesterday->error. post to new today->add.
+    @ParameterizedTest
+    @EnumSource(TomorrowTestCase::class)
+    fun `posting message for tomorrow correctly performs swap, modifying yesterday and today`(
+        case: TomorrowTestCase
+    ) = runBlocking {
+        // given
+        val messagesInHistoryChannel = generateMessagesFor(case.daysDefined)
+        val service = PersistReactionService(discordMocker.mock, activeMemberConfig, today, messagesInHistoryChannel)
+        val daysToPostTo = listOf(Day.TODAY, Day.YESTERDAY, Day.TOMORROW).shuffled()
+        val userId1 = 10072uL
+        val userId2 = 3003uL
 
-    // case: only today defined
-    // post to tomorrow->create new today
-    // random order: post to old today->add. post to old yesterday->error. post to new today->add.
+        // when:
+        // (1) post a new reaction for tomorrow, causing a swap
+        service.persistReaction(today.plusDays(1), userId1)
+        // (2) posting a new reaction to the old today, old yesterday, and new today in random order (shuffled above)
+        val results = daysToPostTo.map {
+            runCatching {
+                service.persistReaction(today.plusDays(it.offsetDays), userId2)
+            }
+        }
 
-    // case: no days defined
-    // post to tomorrow->create new today
-    // random order: post to old today->create. post to old yesterday->error. post to new today->add.
+        // then: ensure the correct history messages were created or edited
+        // adding reactions to the old yesterday will now throw an error
+        val oldYesterdayIdx = daysToPostTo.indexOf(Day.YESTERDAY)
+        results.forEachIndexed { idx, result ->
+            if (idx == oldYesterdayIdx) {
+                assertTrue(result.isFailure)
+            } else {
+                assertTrue(result.isSuccess)
+            }
+        }
+        // adding reactions to the new today (tomorrow), the new yesterday (today) will still succeed
+        val newTodayExpectedText = "Users who reacted on ${today.plusDays(1)}: $userId1"
+        val newTodayExpectedMessage = capturedMessageOf(newTodayExpectedText, CapturedMessage.Type.CREATE)
+        val successfulExpectedMessagesFromSecondUser = daysToPostTo.filter { it != Day.YESTERDAY }.map {
+            when (it) {
+                // when posting to today (the new yesterday), expect create/edit based on test case
+                Day.TODAY -> generateExpectedCapturedMessageFor(Day.TODAY, userId2, case.oldTodayExpectation)
+                // when posting to tomorrow (the new today), we always expect an edit of the history record
+                Day.TOMORROW -> capturedMessageOf("$newTodayExpectedText, $userId2", CapturedMessage.Type.EDIT)
+                else -> throw IllegalArgumentException("Test misconfigured")
+            }
+        }
+        val expectedMessages = listOf(newTodayExpectedMessage) + successfulExpectedMessagesFromSecondUser
+        discordMocker.assertCapturedMessagesEqual(*expectedMessages.toTypedArray())
+    }
+
 
     private fun generateMessagesFor(daysDefined: DaysDefined): List<Message> {
         val irrelevantMessages = listOf(
@@ -145,4 +207,23 @@ class PersistReactionServiceTest {
             Message(activeMemberConfig.persistenceConfig.channel, Random.Default.nextULong(), UserIds.gatekeeperBot, Clock.System.now(), it)
         }
     }
+
+    private fun generateExpectedCapturedMessageFor(
+        day: Day,
+        userId: UserId,
+        expectedMessageType: CapturedMessage.Type
+    ): CapturedMessage {
+        val text = when (expectedMessageType) {
+            CapturedMessage.Type.CREATE -> "Users who reacted on ${today.plusDays(day.offsetDays)}: $userId"
+            CapturedMessage.Type.EDIT -> when (day) {
+                Day.TODAY -> "Users who reacted on $today: 9, 10, $userId"
+                Day.YESTERDAY -> "Users who reacted on ${today.minusDays(1)}: 11, 12, $userId"
+                else -> throw IllegalArgumentException(day.toString())
+            }
+        }
+        return capturedMessageOf(text, expectedMessageType)
+    }
+
+    private fun capturedMessageOf(text: String, expectedMessageType: CapturedMessage.Type)
+    = CapturedMessage(text, activeMemberConfig.persistenceConfig.channel, expectedMessageType)
 }
