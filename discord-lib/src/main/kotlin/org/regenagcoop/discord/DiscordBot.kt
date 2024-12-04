@@ -1,11 +1,13 @@
 package org.regenagcoop.discord
 
+import dev.kord.core.event.message.ReactionAddEvent
 import dev.kord.gateway.DefaultGateway
 import dev.kord.gateway.MessageCreate
 import dev.kord.gateway.start
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.datetime.Clock
 import mu.KotlinLogging
 import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.model.Message
@@ -30,13 +32,20 @@ open class DiscordBot(
                     val username = usernameCache.lookup(userId)
                     val localDate = this.getUtcDate()
                     logger.debug { "Message received from $username on $localDate in $channelName" }
-                    onMessage.invoke(Message(userId, this.timestamp, this.content))
+                    onMessage.invoke(this.toMessage())
                 }
             }.launchIn(gateway)
         }
 
-        // TODO #16: listen for reactions
-        throw NotImplementedError()
+        if (onReaction != null) {
+            gateway.events.filterIsInstance<ReactionAddEvent>().onEach { reactionAddEvent ->
+                val timestamp = Clock.System.now() // discord doesn't provide timestamps for reactions, so we are approximating it by grabbing the timestamp that we receive the event
+                val reaction = Reaction(reactionAddEvent.userId.value, timestamp)
+                val username = usernameCache.lookup(reaction.userId)
+                logger.debug { "Reaction received from $username on ${reaction.utcDate}"}
+                onReaction.invoke(reaction)
+            }
+        }
 
         // endlessly listen for events
         gateway.start(discordApiToken) {

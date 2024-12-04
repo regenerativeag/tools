@@ -6,6 +6,8 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 
 data class Message(
+        val channelId: ChannelId,
+        val messageId: MessageId,
         val userId: UserId,
         val instant: Instant,
         val text: String,

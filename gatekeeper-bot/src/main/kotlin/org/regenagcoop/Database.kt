@@ -44,6 +44,20 @@ class Database {
         }
     }
 
+    suspend fun addReaction(userId: UserId, date: LocalDate): AddReactionResult {
+        mutex.withLock {
+            if (userId !in reactionHistory) {
+                reactionHistory[userId] = mutableSetOf()
+            }
+            val reactionDays = reactionHistory[userId]!!
+            val firstReactionOfDay = date !in reactionDays
+            if (firstReactionOfDay) {
+                reactionDays.add(date)
+            }
+            return AddReactionResult(firstReactionOfDay)
+        }
+    }
+
     suspend fun getPostHistory(): Map<UserId, Set<LocalDate>> {
         mutex.withLock {
             return postHistory.toMap()
@@ -64,5 +78,6 @@ class Database {
 
     companion object {
         data class AddPostResult(val isFirstPostOfDay: Boolean, val postDays: Set<LocalDate>)
+        data class AddReactionResult(val isFirstReactionOfDay: Boolean)
     }
 }
