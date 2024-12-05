@@ -17,11 +17,16 @@ class PersistedActivityServiceTest {
         // given
         discordMocker.mockMessagesInChannel(ChannelIds.persistenceLog, listOf(
             "Users who posted on 2016-11-08: 1, 2",
+            "Users who reacted on 1940-04-06: 7, 77, 777, 999, 99, 9",
             "Users who posted on 2016-11-09: 1, 27",
             "Users who posted on 2016-11-10: 2, 33",
+            "Users who reacted on 2016-11-10: 298, 17, 33",
+            "Users who reacted on 2088-11-12: 7",
             "Users who posted on 2016-08-01: 3, 5",
+            "Users who reacted on 2016-08-01: 113",
             "Users who posted on 2016-08-02: 4, 27, 33",
-            "Users who posted on 2022-01-05: "
+            "Users who posted on 2022-01-05: ",
+            "Users who reacted on 2017-01-04: 7, 5, 2",
         ))
 
         // when
@@ -34,17 +39,25 @@ class PersistedActivityServiceTest {
                 setOf(1uL, 2uL),
                 setOf()
             ),
+            LocalDate.of(1940, 4, 6) to UsersWhoPostedAndReacted(
+                setOf(),
+                setOf(7uL, 77uL, 777uL, 999uL, 99uL, 9uL)
+            ),
             LocalDate.of(2016, 11, 9) to UsersWhoPostedAndReacted(
                 setOf(1uL, 27uL),
                 setOf()
             ),
             LocalDate.of(2016, 11, 10) to UsersWhoPostedAndReacted(
                 setOf(2uL, 33uL),
-                setOf()
+                setOf(298uL, 17uL, 33uL)
+            ),
+            LocalDate.of(2088, 11, 12) to UsersWhoPostedAndReacted(
+                setOf(),
+                setOf(7uL)
             ),
             LocalDate.of(2016, 8, 1) to UsersWhoPostedAndReacted(
                 setOf(3uL, 5uL),
-                setOf()
+                setOf(113uL)
             ),
             LocalDate.of(2016, 8, 2) to UsersWhoPostedAndReacted(
                 setOf(4uL, 27uL, 33uL),
@@ -53,6 +66,10 @@ class PersistedActivityServiceTest {
             LocalDate.of(2022, 1, 5) to UsersWhoPostedAndReacted(
                 setOf(),
                 setOf()
+            ),
+            LocalDate.of(2017, 1, 4) to UsersWhoPostedAndReacted(
+                setOf(),
+                setOf(7uL, 5uL, 2uL)
             )
         )
 

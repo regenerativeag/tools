@@ -23,36 +23,50 @@ class PersistedActivityService(
     }
 
     internal fun computePersistedHistoryByDate(persistedHistoryMessages: List<Message>): UsersWhoPostedAndReactedByDate {
+        fun parseHistoryMessage(text: String, prefix: String): Pair<LocalDate, Set<UserId>> {
+            val datePlaceholder = "XXXX-XX-XX"
+            val separator  = ": "
+
+            var remainder = text
+            remainder = remainder.substring(prefix.length)
+            val dateStr = remainder.substring(0, datePlaceholder.length)
+            remainder = remainder.substring(datePlaceholder.length + separator.length)
+            val usersStr = remainder
+
+            val date = LocalDate.parse(dateStr)
+            val userIds = if (usersStr.isBlank()) {
+                setOf()
+            } else {
+                usersStr.split(", ").map { it.toULong() }.toSet()
+            }
+
+            return date to userIds
+        }
+
         val persistedHistoryByDate = mutableMapOf<LocalDate, UsersWhoPostedAndReacted>()
 
         persistedHistoryMessages.forEach { message ->
             val postPrefix = "Users who posted on "
-            val datePlaceholder = "XXXX-XX-XX"
-            val separator  = ": "
+            val reactionPrefix = "Users who reacted on "
             when {
                 message.text.startsWith(postPrefix) -> {
-                    var remainder = message.text
-                    remainder = remainder.substring(postPrefix.length)
-                    val dateStr = remainder.substring(0, datePlaceholder.length)
-                    remainder = remainder.substring(datePlaceholder.length + separator.length)
-                    val usersStr = remainder
-
-                    val date = LocalDate.parse(dateStr)
-                    val posterIds = if (usersStr.isBlank()) {
-                        setOf()
-                    } else {
-                        usersStr.split(", ").map { it.toULong() }.toSet()
-                    }
-
+                    val (date, posterIds) = parseHistoryMessage(message.text, postPrefix)
                     val last = persistedHistoryByDate[date]
                     persistedHistoryByDate[date] = UsersWhoPostedAndReacted(
                         posterIds + (last?.usersWhoPosted ?: setOf()),
                         last?.usersWhoReacted ?: setOf()
                     )
                 }
+                message.text.startsWith(reactionPrefix) -> {
+                    val (date, reactorIds) = parseHistoryMessage(message.text, reactionPrefix)
+                    val last = persistedHistoryByDate[date]
+                    persistedHistoryByDate[date] = UsersWhoPostedAndReacted(
+                        last?.usersWhoPosted ?: setOf(),
+                        reactorIds + (last?.usersWhoReacted ?: setOf())
+                    )
+                }
                 else -> throw IllegalStateException("Unexpected message in persistence channel: ${message.text}")
             }
-
         }
 
         return persistedHistoryByDate
