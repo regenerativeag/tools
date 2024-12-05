@@ -44,7 +44,7 @@ open class DiscordBot(
                 val username = usernameCache.lookup(reaction.userId)
                 logger.debug { "Reaction received from $username on ${reaction.utcDate}"}
                 onReaction.invoke(reaction)
-            }
+            }.launchIn(gateway)
         }
 
         // endlessly listen for events
