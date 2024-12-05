@@ -1,8 +1,8 @@
 package org.regenagcoop.discord
 
-import dev.kord.core.event.message.ReactionAddEvent
 import dev.kord.gateway.DefaultGateway
 import dev.kord.gateway.MessageCreate
+import dev.kord.gateway.MessageReactionAdd
 import dev.kord.gateway.start
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
@@ -38,9 +38,9 @@ open class DiscordBot(
         }
 
         if (onReaction != null) {
-            gateway.events.filterIsInstance<ReactionAddEvent>().onEach { reactionAddEvent ->
+            gateway.events.filterIsInstance<MessageReactionAdd>().onEach { reactionEvent ->
                 val timestamp = Clock.System.now() // discord doesn't provide timestamps for reactions, so we are approximating it by grabbing the timestamp that we receive the event
-                val reaction = Reaction(reactionAddEvent.userId.value, timestamp)
+                val reaction = Reaction(reactionEvent.reaction.userId.value, timestamp)
                 val username = usernameCache.lookup(reaction.userId)
                 logger.debug { "Reaction received from $username on ${reaction.utcDate}"}
                 onReaction.invoke(reaction)
