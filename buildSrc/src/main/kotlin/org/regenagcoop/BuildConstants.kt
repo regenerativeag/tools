@@ -2,7 +2,7 @@ package org.regenagcoop
 
 object BuildConstants {
     val group = "org.regenerativeag"
-    val version = "1.0.0"
+    val version = "1.1.0"
 
     object DependencyVersions {
         val jvm = 17
