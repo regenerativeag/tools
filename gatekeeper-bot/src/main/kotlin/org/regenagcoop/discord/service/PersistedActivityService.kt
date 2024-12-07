@@ -5,6 +5,9 @@ import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.model.RoleChange
+import org.regenagcoop.model.RoleChangeHistory
+import java.time.Instant
 import java.time.LocalDate
 
 class PersistedActivityService(
@@ -22,8 +25,8 @@ class PersistedActivityService(
         return persistedHistoryMessages
     }
 
-    internal fun computePersistedHistoryByDate(persistedHistoryMessages: List<Message>): UsersWhoPostedAndReactedByDate {
-        fun parseHistoryMessage(text: String, prefix: String): Pair<LocalDate, Set<UserId>> {
+    internal fun computePersistedActivityHistory(persistedHistoryMessages: List<Message>): PersistedActivityHistory {
+        fun parsePostOrReactionHistoryMessage(text: String, prefix: String): Pair<LocalDate, Set<UserId>> {
             val datePlaceholder = "XXXX-XX-XX"
             val separator  = ": "
 
@@ -44,13 +47,19 @@ class PersistedActivityService(
         }
 
         val persistedHistoryByDate = mutableMapOf<LocalDate, UsersWhoPostedAndReacted>()
+        val roleChanges = mutableListOf<RoleChange>()
 
         persistedHistoryMessages.forEach { message ->
             val postPrefix = "Users who posted on "
             val reactionPrefix = "Users who reacted on "
+            val roleChangePrefix = "Role change occurred."
+            val roleChangeRegex = Regex(
+                "$roleChangePrefix (\\d+) transitioned from (\\w+) to (\\w+) at (.+)"
+            )
+
             when {
                 message.text.startsWith(postPrefix) -> {
-                    val (date, posterIds) = parseHistoryMessage(message.text, postPrefix)
+                    val (date, posterIds) = parsePostOrReactionHistoryMessage(message.text, postPrefix)
                     val last = persistedHistoryByDate[date]
                     persistedHistoryByDate[date] = UsersWhoPostedAndReacted(
                         posterIds + (last?.usersWhoPosted ?: setOf()),
@@ -58,18 +67,31 @@ class PersistedActivityService(
                     )
                 }
                 message.text.startsWith(reactionPrefix) -> {
-                    val (date, reactorIds) = parseHistoryMessage(message.text, reactionPrefix)
+                    val (date, reactorIds) = parsePostOrReactionHistoryMessage(message.text, reactionPrefix)
                     val last = persistedHistoryByDate[date]
                     persistedHistoryByDate[date] = UsersWhoPostedAndReacted(
                         last?.usersWhoPosted ?: setOf(),
                         reactorIds + (last?.usersWhoReacted ?: setOf())
                     )
                 }
+                message.text.startsWith(roleChangePrefix) -> {
+                    val result = roleChangeRegex.matchEntire(message.text)!!
+                    val userId = result.groupValues[1].toULong()
+                    fun parseRoleId(num: String) = if (num == "null") null else num.toULong()
+                    val fromRoleId = parseRoleId(result.groupValues[2])
+                    val toRoleId = parseRoleId(result.groupValues[3])
+                    val timestamp = Instant.parse(result.groupValues[4])
+                    val roleChange = RoleChange(userId, fromRoleId, toRoleId, timestamp)
+                    roleChanges.add(roleChange)
+                }
                 else -> throw IllegalStateException("Unexpected message in persistence channel: ${message.text}")
             }
         }
 
-        return persistedHistoryByDate
+        return PersistedActivityHistory(
+            persistedHistoryByDate,
+            roleChanges
+        )
     }
 
     /** The earliest date we need to scan back to, given what we already have found in the persistence channel */
@@ -94,10 +116,15 @@ class PersistedActivityService(
     }
 }
 
-internal data class UsersWhoPostedAndReacted(
+data class UsersWhoPostedAndReacted(
     val usersWhoPosted: Set<UserId>,
     val usersWhoReacted: Set<UserId>,
 )
 
 /** Unlike ActivityHistory, this alternative format of ActivityHistory allows us to know which days have been persisted, even if there was no activity on that day */
-internal typealias UsersWhoPostedAndReactedByDate = Map<LocalDate, UsersWhoPostedAndReacted>
+typealias UsersWhoPostedAndReactedByDate = Map<LocalDate, UsersWhoPostedAndReacted>
+
+data class PersistedActivityHistory(
+    val usersWhoPostedAndReactedByDate: UsersWhoPostedAndReactedByDate,
+    val roleChangeHistory: RoleChangeHistory,
+)

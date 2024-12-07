@@ -18,18 +18,19 @@ class ScanActivityService(
     /**
      * Load activity history by reading the persistence channel and scanning any missing data from channels & threads
      */
-    suspend fun scanForActivityHistory(today: LocalDate, persistedHistoryMessages: List<Message>): Pair<ActivityHistory, Set<LocalDate>> {
-        val persistedHistoryByDate = persistedActivityService.computePersistedHistoryByDate(persistedHistoryMessages)
+    suspend fun scanForCompleteActivityHistory(today: LocalDate, persistedHistoryMessages: List<Message>): Pair<ActivityHistory, Set<LocalDate>> {
+        val persistedActivityHistory = persistedActivityService.computePersistedActivityHistory(persistedHistoryMessages)
+        val usersWhoPostedAndReactedByDate = persistedActivityHistory.usersWhoPostedAndReactedByDate
 
         val earliestUnpersistedDate = persistedActivityService.computeEarliestUnpersistedDate(
             today,
-            persistedHistoryByDate.keys
+            usersWhoPostedAndReactedByDate.keys
         )
 
         val scannedMessages = scanMessagesFromAllChannelsAndThreads(earliestUnpersistedDate)
 
-        val activityHistory = combinePersistedAndScannedHistory(persistedHistoryByDate, scannedMessages)
-        return activityHistory to persistedHistoryByDate.keys
+        val activityHistory = combinePersistedAndScannedHistory(persistedActivityHistory, scannedMessages)
+        return activityHistory to usersWhoPostedAndReactedByDate.keys
     }
 
     private suspend fun scanMessagesFromAllChannelsAndThreads(untilDate: LocalDate): List<Message> {
@@ -48,7 +49,7 @@ class ScanActivityService(
     }
 
     private fun combinePersistedAndScannedHistory(
-        persistedHistoryByDate: UsersWhoPostedAndReactedByDate,
+        persistedActivityHistory: PersistedActivityHistory,
         scannedMessages: List<Message>,
     ): ActivityHistory {
 
@@ -60,8 +61,8 @@ class ScanActivityService(
             addTo(postHistory, message.userId, message.utcDate)
         }
 
-        // add persisted data into history
-        persistedHistoryByDate.forEach { date, (usersWhoPosted, usersWhoReacted) ->
+        // add persisted data (excluding role changes) into history
+        persistedActivityHistory.usersWhoPostedAndReactedByDate.forEach { date, (usersWhoPosted, usersWhoReacted) ->
             usersWhoPosted.forEach { userId ->
                 addTo(postHistory, userId, date)
             }
@@ -70,7 +71,8 @@ class ScanActivityService(
             }
         }
 
-        return ActivityHistory(postHistory, reactionHistory)
+        // return complete activity history at the present moment
+        return ActivityHistory(postHistory, reactionHistory, persistedActivityHistory.roleChangeHistory)
     }
 
     private fun addTo(history: MutableMap<UserId, MutableSet<LocalDate>>, userId: UserId, date: LocalDate) {

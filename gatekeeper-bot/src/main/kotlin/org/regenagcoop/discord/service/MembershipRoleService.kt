@@ -1,6 +1,8 @@
 package org.regenagcoop.discord.service
 
+import kotlinx.datetime.Clock
 import mu.KotlinLogging
+import org.regenagcoop.Database
 import org.regenagcoop.coroutine.parallelForEachIO
 import org.regenagcoop.coroutine.parallelMapIO
 import org.regenagcoop.discord.Discord
@@ -8,13 +10,17 @@ import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.model.RoleId
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.model.RoleChange
+import java.time.Instant
 
 /** A DiscordClient which posts messages to appropriate rooms when adding/removing roles */
 class MembershipRoleService(
     discord: Discord,
     private val activeMemberConfig: ActiveMemberConfig,
+    private val database: Database,
 ) : DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
+    private val persistRoleChangeService = PersistRoleChangeService(discord, activeMemberConfig)
 
     /**
      * Add an active member role to the users.
@@ -40,7 +46,7 @@ class MembershipRoleService(
                 }
                 discord.users.removeRolesFromUser(userId, roleIdsToRemove)
                 discord.users.addRoleToUser(userId, roleId)
-                postUpgradeOrDowngradeMessage(userId, roleIdsToRemove, roleConfig)
+                handleRoleChanged(userId, roleIdsToRemove, roleConfig)
             }
         }
     }
@@ -51,7 +57,7 @@ class MembershipRoleService(
             val currentMembershipRoleIds = getCurrentMembershipRoleIds(inactiveMemberId)
             if (currentMembershipRoleIds.isNotEmpty()) {
                 discord.users.removeRolesFromUser(inactiveMemberId, currentMembershipRoleIds)
-                postUpgradeOrDowngradeMessage(inactiveMemberId, currentMembershipRoleIds, null)
+                handleRoleChanged(inactiveMemberId, currentMembershipRoleIds, null)
             }
         }
     }
@@ -62,13 +68,32 @@ class MembershipRoleService(
         return currentRoleIds.intersect(membershipRoleIds)
     }
 
-    private suspend fun postUpgradeOrDowngradeMessage(userId: UserId, previousRoleIds: Collection<RoleId>, newRoleConfig: ActiveMemberConfig.RoleConfig?) {
+    /** Post messages to appropriate rooms */
+    private suspend fun handleRoleChanged(userId: UserId, previousRoleIds: Collection<RoleId>, newRoleConfig: ActiveMemberConfig.RoleConfig?) {
         val newRoleId = newRoleConfig?.roleId
+        val roleChangeTimestamp = Instant.now()
+
+        // add RoleChange to the database & persistence channel
+        // there should always be just one unless someone manually edited roles incorrectly
+        val roleChanges = if (previousRoleIds.isEmpty()) {
+            listOf(
+                RoleChange(userId, null, newRoleId, roleChangeTimestamp)
+            )
+        } else {
+            previousRoleIds.map { previousRoleId ->
+                RoleChange(userId, previousRoleId, newRoleId, roleChangeTimestamp)
+            }
+        }
+        roleChanges.forEach {
+            database.addRoleChange(it)
+            persistRoleChangeService.persistRoleChange(it)
+        }
 
         val roleIdxByRoleId = activeMemberConfig.roleConfigs.mapIndexed { idx, cfg -> cfg.roleId to idx }.toMap()
         val previousRoleLevel = previousRoleIds.mapNotNull { roleIdxByRoleId[it] }.maxOrNull()
         val newRoleLevel = newRoleId?.let { roleIdxByRoleId[newRoleId]!! }
 
+        // Post upgrade and downgrade messages to appropriate room
         val isUpgrade = newRoleLevel != null && (previousRoleLevel == null || newRoleLevel > previousRoleLevel)
         if (isUpgrade) {
             newRoleConfig!! // non-null due to isUpgrade == true

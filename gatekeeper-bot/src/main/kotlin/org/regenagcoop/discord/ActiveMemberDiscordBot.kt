@@ -28,7 +28,7 @@ class ActiveMemberDiscordBot(
 
     private val canUpdateRolesOrDbMutex = Mutex()
     private val discord = Discord(httpClient, activeMemberConfig.guildId, discordApiToken, dryRun)
-    private val membershipRoleService = MembershipRoleService(discord, activeMemberConfig)
+    private val membershipRoleService = MembershipRoleService(discord, activeMemberConfig, database)
     private val persistedActivityService = PersistedActivityService(discord, activeMemberConfig)
     private val persistPostsService = PersistPostsService(discord, activeMemberConfig)
     private var persistReactionService: PersistReactionService? = null // cannot be initialized until persisted history is fetched
@@ -54,7 +54,7 @@ class ActiveMemberDiscordBot(
                 logger.debug { "Loading Database" }
                 val persistedHistoryMessages = persistedActivityService.fetchPersistedHistoryMessages()
                 persistReactionService = PersistReactionService(discord, activeMemberConfig, startupDate, persistedHistoryMessages)
-                val (activityHistory, persistedDates) = scanActivityService.scanForActivityHistory(startupDate, persistedHistoryMessages)
+                val (activityHistory, persistedDates) = scanActivityService.scanForCompleteActivityHistory(startupDate, persistedHistoryMessages)
 
                 logger.debug { "Initializing in-memory database: $activityHistory" }
                 database.initialize(activityHistory)
