@@ -4,12 +4,14 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActivityHistory
-import org.regenagcoop.model.PostHistory
+import org.regenagcoop.model.RoleChange
 import java.time.LocalDate
 
 class Database {
+    // TODO: create & link an optimization issue. These maps currently grow in memory until the application restarts. They need to be pruned periodically to handle servers that have tons of activity.
     private val postHistory = mutableMapOf<UserId, MutableSet<LocalDate>>()
     private val reactionHistory = mutableMapOf<UserId, MutableSet<LocalDate>>()
+    private val roleChangeHistory = mutableMapOf<UserId, MutableList<RoleChange>>()
     private var initialized: Boolean = false
 
     private val mutex = Mutex()
@@ -55,6 +57,15 @@ class Database {
                 reactionDays.add(date)
             }
             return AddReactionResult(firstReactionOfDay)
+        }
+    }
+
+    suspend fun addRoleChange(roleChange: RoleChange) {
+        mutex.withLock {
+            if (roleChange.userId !in roleChangeHistory) {
+                roleChangeHistory[roleChange.userId] = mutableListOf()
+            }
+            roleChangeHistory[roleChange.userId]!!.add(roleChange)
         }
     }
 
