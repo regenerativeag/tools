@@ -30,7 +30,12 @@ class InMemoryDatabase(initialData: ActivityHistory) {
             reactionHistory[userId] = dates.toMutableSet()
         }
 
-        // TODO initialize roleChangeHistory
+        initialData.roleChangeHistory.forEach { roleChange ->
+            if (roleChange.userId !in roleChangeHistory) {
+                roleChangeHistory[roleChange.userId] = mutableListOf()
+            }
+            roleChangeHistory[roleChange.userId]!!.add(roleChange)
+        }
     }
 
     suspend fun addPost(userId: UserId, date: LocalDate): AddPostResult {
