@@ -16,6 +16,8 @@ import org.regenagcoop.discord.model.RoleId
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.discord.mock.CapturedMessage
 import org.regenagcoop.discord.mock.DiscordMocker
+import org.regenagcoop.model.ActivityHistory
+import java.time.LocalDate
 
 
 class MembershipRoleServiceTest {
@@ -95,7 +97,23 @@ class MembershipRoleServiceTest {
 
     private val restClient = mockk<RestClient>()
     private val discordMocker = DiscordMocker(restClient)
-    private val membershipRoleService = MembershipRoleService(discordMocker.mock, activeMemberConfig, database = mockk(relaxed = true))
+    private val database = spyk(Database(discordMocker.mock, activeMemberConfig)).also { dbSpy ->
+        // start database with no activity history
+        val emptyActivityHistory = ActivityHistory(mapOf(), mapOf(), listOf())
+        coEvery {
+            dbSpy.fetchActivityHistory()
+        }.returns(Triple(emptyActivityHistory, setOf(), listOf()))
+
+        // don't try to persist empty history, which would add a bunch of empty post history messages to the discordMocker
+        coEvery {
+            dbSpy.persistMissingPostHistory(emptyActivityHistory, setOf())
+        }.just(runs)
+
+        runBlocking {
+            dbSpy.initialize(LocalDate.now())
+        }
+    }
+    private val membershipRoleService = MembershipRoleService(discordMocker.mock, activeMemberConfig, database)
 
 
     @ParameterizedTest

@@ -29,10 +29,6 @@ class ActiveMemberDiscordBot(
     private val canUpdateRolesOrDbMutex = Mutex()
     private val discord = Discord(httpClient, activeMemberConfig.guildId, discordApiToken, dryRun)
     private val membershipRoleService = MembershipRoleService(discord, activeMemberConfig, database)
-    private val persistedActivityService = PersistedActivityService(discord, activeMemberConfig)
-    private val persistPostsService = PersistPostsService(discord, activeMemberConfig)
-    private var persistReactionService: PersistReactionService? = null // cannot be initialized until persisted history is fetched
-    private val scanActivityService = ScanActivityService(discord, persistedActivityService)
     private val resetMembershipsService = ResetMembershipsService(discord, membershipRoleService, activeMemberConfig)
 
     private val bot = DiscordBot(
@@ -51,20 +47,8 @@ class ActiveMemberDiscordBot(
             name = "load database"
         ) {
             canUpdateRolesOrDbMutex.withLock {
-                logger.debug { "Loading Database" }
-                val persistedHistoryMessages = persistedActivityService.fetchPersistedHistoryMessages()
-                persistReactionService = PersistReactionService(discord, activeMemberConfig, startupDate, persistedHistoryMessages)
-                val (activityHistory, persistedDates) = scanActivityService.scanForCompleteActivityHistory(startupDate, persistedHistoryMessages)
-
-                logger.debug { "Initializing in-memory database: $activityHistory" }
-                database.initialize(activityHistory)
-
-                logger.debug { "Persisting missing post history into persistence channel" }
-                persistPostsService.persistMissingPostHistory(
-                    startupDate,
-                    activityHistory.postHistory,
-                    persistedDates
-                )
+                logger.debug { "Initializing database" }
+                database.initialize(startupDate)
             }
         }
 
@@ -105,9 +89,8 @@ class ActiveMemberDiscordBot(
                 downgradeRoles()
 
                 val yesterday = getTodaysDate().minusDays(1)
-                val posters = database.getUsersWhoPostedOnDay(yesterday)
-                logger.debug { "Persisting yesterday's ($yesterday) post history: ${posters.sorted()}" }
-                persistPostsService.persistPostHistoryForDay(yesterday, posters)
+                logger.debug { "Persisting yesterday's ($yesterday) post history" }
+                database.persistYesterdaysPostHistory(yesterday)
             }
         }
 
@@ -148,11 +131,7 @@ class ActiveMemberDiscordBot(
         }
 
         canUpdateRolesOrDbMutex.withLock {
-            val (isFirstReactionOfDay) = database.addReaction(reaction.userId, reaction.utcDate)
-
-            if (isFirstReactionOfDay) {
-                persistReactionService!!.persistReaction(reaction.utcDate, reaction.userId)
-            }
+            database.addReaction(reaction.userId, reaction.utcDate)
         }
     }
 

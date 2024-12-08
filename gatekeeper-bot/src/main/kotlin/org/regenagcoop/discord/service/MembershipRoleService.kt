@@ -20,7 +20,6 @@ class MembershipRoleService(
     private val database: Database,
 ) : DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
-    private val persistRoleChangeService = PersistRoleChangeService(discord, activeMemberConfig)
 
     /**
      * Add an active member role to the users.
@@ -73,7 +72,7 @@ class MembershipRoleService(
         val newRoleId = newRoleConfig?.roleId
         val roleChangeTimestamp = Instant.now()
 
-        // add RoleChange to the database & persistence channel
+        // add RoleChange to the database
         // there should always be just one unless someone manually edited roles incorrectly
         val roleChanges = if (previousRoleIds.isEmpty()) {
             listOf(
@@ -84,10 +83,7 @@ class MembershipRoleService(
                 RoleChange(userId, previousRoleId, newRoleId, roleChangeTimestamp)
             }
         }
-        roleChanges.forEach {
-            database.addRoleChange(it)
-            persistRoleChangeService.persistRoleChange(it)
-        }
+        roleChanges.forEach { database.addRoleChange(it) }
 
         val roleIdxByRoleId = activeMemberConfig.roleConfigs.mapIndexed { idx, cfg -> cfg.roleId to idx }.toMap()
         val previousRoleLevel = previousRoleIds.mapNotNull { roleIdxByRoleId[it] }.maxOrNull()

@@ -23,13 +23,10 @@ class Main : CliktCommand() {
         .help("set to false in order for changes to take effect")
 
     override fun run() {
-        val bot = with (DependencyFactory()) {
-            val discordApiToken = readDiscordApiToken()
+        val dependencies = Dependencies(configPath, dryRun)
+        val bot = with (dependencies) {
             logger.info("Launching with configPath=$configPath, dryRun=$dryRun")
-            val httpClient = createHttpClient()
-            val database = createDatabase()
-            val config = readConfig(configPath)
-            ActiveMemberDiscordBot(httpClient, discordApiToken, dryRun, database, config)
+            ActiveMemberDiscordBot(httpClient, discordApiToken, dryRun, database, activeMemberConfig)
         }
 
         bot.start()

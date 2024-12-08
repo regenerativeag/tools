@@ -4,8 +4,10 @@ import org.regenagcoop.model.ActiveMemberConfig
 import org.regenagcoop.tools.GlobalObjectMapper
 import java.io.File
 
+val defaultConfigPath = "bot-config.yml"
+
 val activeMemberConfig = GlobalObjectMapper.readValue(
-    File("bot-config.yml"),
+    File(defaultConfigPath),
     ActiveMemberConfig::class.java
 )
 
