@@ -6,6 +6,7 @@ import org.regenagcoop.*
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.client.RoomsDiscordClient
 import org.regenagcoop.discord.service.PersistedActivityService
+import org.regenagcoop.model.ActiveMemberConfig
 import kotlin.test.Ignore
 import kotlin.test.assertEquals
 
@@ -21,16 +22,9 @@ import kotlin.test.assertEquals
  * You can run the test directly through the IDE (if you have one) or command line using junit, if not. TODO: instructions for running on command line.
  */
 class ManualTests {
-    private val discord: Discord by lazy {
-        with(DependencyFactory()) {
-            Discord(
-                createHttpClient(),
-                guildId,
-                readDiscordApiToken(),
-                dryRun = true
-            )
-        }
-    }
+    private val dependencies = Dependencies(configPath = defaultConfigPath, dryRun = true)
+    private val activeMemberConfig: ActiveMemberConfig by lazy { dependencies.activeMemberConfig }
+    private val discord: Discord by lazy { dependencies.discord }
 
 
     @Ignore
