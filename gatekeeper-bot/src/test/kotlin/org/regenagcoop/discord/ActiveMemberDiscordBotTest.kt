@@ -58,6 +58,7 @@ class ActiveMemberDiscordBotTest {
                         )
                     ),
                     ActiveMemberConfig.DowngradeMessageConfig(0uL, "template"),
+                    ActiveMemberConfig.PersistenceConfig(0uL),
             )
     ) {
         EMPTY(),
@@ -136,6 +137,6 @@ class ActiveMemberDiscordBotTest {
     }
 
     companion object {
-        val today = LocalDate.now()
+        val today = ActiveMemberDiscordBot.getTodaysDate()
     }
 }

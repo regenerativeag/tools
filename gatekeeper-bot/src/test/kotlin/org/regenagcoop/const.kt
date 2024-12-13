@@ -4,8 +4,10 @@ import org.regenagcoop.model.ActiveMemberConfig
 import org.regenagcoop.tools.GlobalObjectMapper
 import java.io.File
 
+val defaultConfigPath = "bot-config.yml"
+
 val activeMemberConfig = GlobalObjectMapper.readValue(
-    File("bot-config.yml"),
+    File(defaultConfigPath),
     ActiveMemberConfig::class.java
 )
 
@@ -15,6 +17,7 @@ object ChannelIds {
     val connect = 1162017937796911209uL
     val community = 1223262623194153111uL
     val moderationLog = 1230667079213125702uL
+    val persistenceLog = 1279607063646965921uL
 }
 
 object RoleIds {
@@ -23,6 +26,6 @@ object RoleIds {
 }
 
 object UserIds {
-    val larry = 1221517195931156530uL
+    val gatekeeperBot = 1221517195931156530uL
     val josh = 1003068122997207060uL
 }
