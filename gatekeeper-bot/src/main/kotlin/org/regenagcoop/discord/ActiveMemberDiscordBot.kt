@@ -167,11 +167,13 @@ class ActiveMemberDiscordBot(
 
         /** Determine whether the user should have the role identified by [roleConfig], given the user's [postDays] */
         internal fun meetsThreshold(roleConfig: ActiveMemberConfig.RoleConfig, postDays: Set<LocalDate>, today: LocalDate): Boolean {
-            val earliestAddDate = today.minusDays(roleConfig.addRoleConfig.windowSize - 1L)
-            val earliestKeepDate = today.minusDays(roleConfig.keepRoleConfig.windowSize - 1L)
-            val meetsAddThreshold = postDays.filter { date -> date >=  earliestAddDate }.size >= roleConfig.addRoleConfig.minPostDays
-            val meetsKeepThreshold = postDays.filter { date -> date >= earliestKeepDate }.size >= roleConfig.keepRoleConfig.minPostDays
-            return meetsAddThreshold && meetsKeepThreshold
+            // TODO #26: update logic and parameters
+//            val earliestAddDate = today.minusDays(roleConfig.addRoleConfig.windowSize - 1L)
+//            val earliestKeepDate = today.minusDays(roleConfig.keepRoleConfig.windowSize - 1L)
+//            val meetsAddThreshold = postDays.filter { date -> date >=  earliestAddDate }.size >= roleConfig.addRoleConfig.minPostDays
+//            val meetsKeepThreshold = postDays.filter { date -> date >= earliestKeepDate }.size >= roleConfig.keepRoleConfig.minPostDays
+//            return meetsAddThreshold && meetsKeepThreshold
+            return false
         }
 
         /**

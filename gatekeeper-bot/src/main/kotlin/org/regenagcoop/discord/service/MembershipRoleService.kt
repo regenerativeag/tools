@@ -94,8 +94,10 @@ class MembershipRoleService(
         if (isUpgrade) {
             newRoleConfig!! // non-null due to isUpgrade == true
             val welcomeConfig = newRoleConfig.welcomeMessageConfig
-            val welcomeMessage = welcomeConfig.createWelcomeMessage(userId)
-            discord.rooms.postMessage(welcomeMessage, welcomeConfig.channel, listOf(userId))
+            if (welcomeConfig != null) {
+                val welcomeMessage = welcomeConfig.createWelcomeMessage(userId)
+                discord.rooms.postMessage(welcomeMessage, welcomeConfig.channel, listOf(userId))
+            }
         } else {
             postDowngradeMessage(userId, previousRoleIds, newRoleId)
         }

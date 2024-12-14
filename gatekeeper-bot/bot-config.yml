@@ -28,6 +28,7 @@ excludedUserIds:
 
 
 
+# TODO #26: update docs
 # The membership roles in your server...
 #
 #   This is an ordered list.
@@ -41,28 +42,44 @@ excludedUserIds:
 #     - Grant role X if the user posts on Y unique days in a period of Z days
 #     - Remove role X if the user hasn't posted on at least Y unique days in a period of Z days
 roleConfigs:
-  # Guest
-  - roleId: 1240396803946582056
-    addRoleConfig: # Grant the Guest role if the user posts on at least one day in the last 60 days
-      windowSize: 60
-      minPostDays: 1
-    keepRoleConfig:
-      windowSize: 60
-      minPostDays: 1 # Remove the Guest role if the user hasn't posted on at least one day in the last 60 days
-    welcomeMessageConfig:
-      channel: 1162017937796911209 # connect
-      template: "A warm hello to our newest guest, USER_MENTION :relaxed: Please check out our [Community Guide](https://regenagcoop.org/community-guide/) when you have a moment."
-  # Active Member
-  - roleId: 1223026651340996698
-    addRoleConfig:
-      windowSize: 60
-      minPostDays: 4 # Grant the Active Member role if the member has posted on at least 4 different days (in GMT (UTC) timezone) in the last 60 days
-    keepRoleConfig:
-      windowSize: 30
-      minPostDays: 1 # Remove the Active Member role if the member hasn't posted on at least 1 day in the last 30 days
-    welcomeMessageConfig:
-      channel: 1223262623194153111 # community
-      template: "Welcome to our community, USER_MENTION!"
+
+  # visitor
+  - roleId: 0 # no role
+    paths:
+      # The user has the "Inactive" role and reacts with a 👍 in #quiet-garden
+      - daysToConsider: 0 # no post or reaction history used, only current state
+        rule:
+          type: and
+          rules:
+            - type: has_role
+              roleId: 0 # TODO #26: "Inactive" roleId
+            - type: reacted
+              emoji: "👍"
+              messageId: 0 # TODO #26: id of message in quiet garden
+# TODO #26: incorporate this existing config (eg welcome messages)
+# TODO #26: create and test remaining roles
+#  # Guest
+#  - roleId: 1240396803946582056
+#    addRoleConfig: # Grant the Guest role if the user posts on at least one day in the last 60 days
+#      windowSize: 60
+#      minPostDays: 1
+#    keepRoleConfig:
+#      windowSize: 60
+#      minPostDays: 1 # Remove the Guest role if the user hasn't posted on at least one day in the last 60 days
+#    welcomeMessageConfig:
+#      channel: 1162017937796911209 # connect
+#      template: "A warm hello to our newest guest, USER_MENTION :relaxed: Please check out our [Community Guide](https://regenagcoop.org/community-guide/) when you have a moment."
+#  # Active Member
+#  - roleId: 1223026651340996698
+#    addRoleConfig:
+#      windowSize: 60
+#      minPostDays: 4 # Grant the Active Member role if the member has posted on at least 4 different days (in GMT (UTC) timezone) in the last 60 days
+#    keepRoleConfig:
+#      windowSize: 30
+#      minPostDays: 1 # Remove the Active Member role if the member hasn't posted on at least 1 day in the last 30 days
+#    welcomeMessageConfig:
+#      channel: 1223262623194153111 # community
+#      template: "Welcome to our community, USER_MENTION!"
 
 
 
@@ -71,6 +88,8 @@ downgradeMessageConfig:
   channel: 1230667079213125702 # moderation-log
   template: "USERNAME has transitioned from PREVIOUS_ROLE to CURRENT_ROLE."
   noRoleName: "Visitor (no role)"
+
+
 
 # The channel to log user activity in (e.g. posts & reactions)
 persistenceConfig:

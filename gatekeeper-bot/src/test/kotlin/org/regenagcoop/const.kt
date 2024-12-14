@@ -1,17 +1,20 @@
 package org.regenagcoop
 
+import org.regenagcoop.discord.model.GuildId
 import org.regenagcoop.model.ActiveMemberConfig
 import org.regenagcoop.tools.GlobalObjectMapper
 import java.io.File
 
 val defaultConfigPath = "bot-config.yml"
 
-val activeMemberConfig = GlobalObjectMapper.readValue(
-    File(defaultConfigPath),
-    ActiveMemberConfig::class.java
-)
+val activeMemberConfig: ActiveMemberConfig by lazy {
+    GlobalObjectMapper.readValue(
+        File(defaultConfigPath),
+        ActiveMemberConfig::class.java
+    )
+}
 
-val guildId = activeMemberConfig.guildId
+val guildId: GuildId by lazy { activeMemberConfig.guildId }
 
 object ChannelIds {
     val connect = 1162017937796911209uL

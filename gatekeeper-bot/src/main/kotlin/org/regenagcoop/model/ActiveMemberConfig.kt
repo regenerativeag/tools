@@ -1,9 +1,8 @@
 package org.regenagcoop.model
 
-import org.regenagcoop.discord.model.ChannelId
-import org.regenagcoop.discord.model.GuildId
-import org.regenagcoop.discord.model.RoleId
-import org.regenagcoop.discord.model.UserId
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.annotation.JsonTypeName
+import org.regenagcoop.discord.model.*
 import java.time.LocalDate
 
 data class ActiveMemberConfig(
@@ -13,8 +12,8 @@ data class ActiveMemberConfig(
     val downgradeMessageConfig: DowngradeMessageConfig,
     val persistenceConfig: PersistenceConfig,
 ) {
-    private val maxWindowSize: Int = roleConfigs.flatMap {
-            listOf(it.keepRoleConfig.windowSize, it.addRoleConfig.windowSize)
+    private val maxWindowSize: UInt = roleConfigs.flatMap { cfg ->
+        cfg.paths.map { path -> path.daysToConsider }
     }.max()
 
     /**
@@ -23,7 +22,11 @@ data class ActiveMemberConfig(
      */
     fun computeEarliestScanDate(today: LocalDate): LocalDate {
         val daysToLookBack = maxWindowSize
-        return today.minusDays(daysToLookBack - 1L)
+        return if (daysToLookBack == 0u) {
+            today
+        } else {
+            today.minusDays(daysToLookBack.toLong() - 1L)
+        }
     }
 
     data class PersistenceConfig(
@@ -32,10 +35,36 @@ data class ActiveMemberConfig(
 
     data class RoleConfig(
         val roleId: RoleId,
-        val addRoleConfig: AddRoleConfig,
-        val keepRoleConfig: KeepRoleConfig,
-        val welcomeMessageConfig: WelcomeMessageConfig,
+        val paths: List<Path>,
+        val welcomeMessageConfig: WelcomeMessageConfig? = null,
     )
+
+    data class Path(
+        val daysToConsider: UInt,
+        val rule: Rule,
+    )
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+    sealed class Rule {
+
+        @JsonTypeName("and")
+        data class And(
+            val rules: List<Rule>
+        ): Rule()
+
+        @JsonTypeName("has_role")
+        data class HasRole(
+            val roleId: RoleId
+        ): Rule()
+
+        @JsonTypeName("reacted")
+        data class Reacted(
+            val emoji: String,
+            val messageId: MessageId,
+            val removeReaction: Boolean = true,
+        ): Rule()
+    }
+
 
     data class WelcomeMessageConfig(
         val channel: ChannelId,

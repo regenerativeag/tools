@@ -37,7 +37,7 @@ class ManualTests {
         val guestRoleConfig = activeMemberConfig.roleConfigs[0]
         assertEquals(RoleIds.guest, guestRoleConfig.roleId)
 
-        val message = guestRoleConfig.welcomeMessageConfig.createWelcomeMessage(userId)
+        val message = guestRoleConfig.welcomeMessageConfig!!.createWelcomeMessage(userId)
 
         // execute
         val roomsDiscordClient = RoomsDiscordClient(discord)

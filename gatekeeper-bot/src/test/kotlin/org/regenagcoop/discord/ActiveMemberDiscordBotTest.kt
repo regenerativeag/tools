@@ -2,13 +2,9 @@ package org.regenagcoop.discord
 
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
-import org.regenagcoop.discord.ActiveMemberDiscordBot
 import org.regenagcoop.model.ActiveMemberConfig
-import org.regenagcoop.model.AddRoleConfig
-import org.regenagcoop.model.KeepRoleConfig
 import org.regenagcoop.model.PostHistory
 import org.regenagcoop.discord.model.UserId
-import java.time.LocalDate
 import kotlin.test.assertEquals
 
 
@@ -22,40 +18,7 @@ class ActiveMemberDiscordBotTest {
                     0uL,
                     setOf(7uL),
                     listOf(
-                        // Guest
-                        ActiveMemberConfig.RoleConfig(
-                            0uL,
-                            AddRoleConfig(
-                                30,
-                                1,
-                            ),
-                            KeepRoleConfig(
-                                30,
-                                1,
-                            ),
-                            ActiveMemberConfig.WelcomeMessageConfig(
-                                0uL,
-                                "start",
-                                "end"
-                            )
-                        ),
-                        // Active
-                        ActiveMemberConfig.RoleConfig(
-                            0uL,
-                            AddRoleConfig(
-                                10,
-                                3,
-                            ),
-                            KeepRoleConfig(
-                                20,
-                                2,
-                            ),
-                            ActiveMemberConfig.WelcomeMessageConfig(
-                                0uL,
-                                "start",
-                                "end"
-                            )
-                        )
+                        // TODO #26: redefine roles and test cases
                     ),
                     ActiveMemberConfig.DowngradeMessageConfig(0uL, "template"),
                     ActiveMemberConfig.PersistenceConfig(0uL),

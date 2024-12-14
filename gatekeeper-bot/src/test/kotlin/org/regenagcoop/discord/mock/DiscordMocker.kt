@@ -11,7 +11,6 @@ import org.regenagcoop.discord.model.ChannelId
 import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.MessageId
 import org.regenagcoop.discord.model.UserId
-import org.regenagcoop.guildId
 import java.time.Instant
 import java.time.LocalDate
 import kotlin.random.Random
@@ -30,7 +29,7 @@ class DiscordMocker(
     private val messagesInChannel = mutableMapOf<ChannelId, List<Message>>()
 
     init {
-        mock = object : Discord(mockk<HttpClient>(), guildId,"test_token", false, restClient) {
+        mock = object : Discord(mockk<HttpClient>(), 111uL,"test_token", false, restClient) {
             override val rooms = object : RoomsDiscordClient(this) {
                 override suspend fun readMessagesFromChannel(
                     channelId: ChannelId,
