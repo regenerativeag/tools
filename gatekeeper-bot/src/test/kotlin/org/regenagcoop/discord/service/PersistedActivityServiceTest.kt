@@ -29,6 +29,7 @@ class PersistedActivityServiceTest {
             "Users who reacted on 2016-08-01: 113",
             "Users who posted on 2016-08-02: 4, 27, 33",
             "Users who posted on 2022-01-05: ",
+            "Users who posted on 2077-07-07:", // discord trims our trailing space
             "Role change occurred. 189 transitioned from 555 to null at 2021-11-10T22:05:12.777169843Z",
             "Users who reacted on 2017-01-04: 7, 5, 2",
             "Role change occurred. 90 transitioned from 12 to 80 at 1997-03-01T06:06:37.828199800Z",
@@ -75,6 +76,10 @@ class PersistedActivityServiceTest {
             LocalDate.of(2017, 1, 4) to UsersWhoPostedAndReacted(
                 setOf(),
                 setOf(7uL, 5uL, 2uL)
+            ),
+            LocalDate.of(2077, 7, 7) to UsersWhoPostedAndReacted(
+                setOf(),
+                setOf()
             )
         )
         val expectedRoleChanges = listOf(

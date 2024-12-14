@@ -28,7 +28,7 @@ class PersistedActivityService(
     internal fun computePersistedActivityHistory(persistedHistoryMessages: List<Message>): PersistedActivityHistory {
         fun parsePostOrReactionHistoryMessage(text: String, prefix: String): Pair<LocalDate, Set<UserId>> {
             val datePlaceholder = "XXXX-XX-XX"
-            val separator  = ": "
+            val separator  = ":"
 
             var remainder = text
             remainder = remainder.substring(prefix.length)
@@ -40,7 +40,7 @@ class PersistedActivityService(
             val userIds = if (usersStr.isBlank()) {
                 setOf()
             } else {
-                usersStr.split(", ").map { it.toULong() }.toSet()
+                usersStr.trim().split(", ").map { it.toULong() }.toSet()
             }
 
             return date to userIds
