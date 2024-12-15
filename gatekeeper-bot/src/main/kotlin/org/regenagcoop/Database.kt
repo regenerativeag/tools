@@ -7,7 +7,7 @@ import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.discord.service.*
-import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.model.config.ActiveMemberConfig
 import org.regenagcoop.model.ActivityHistory
 import org.regenagcoop.model.RoleChange
 import java.time.LocalDate

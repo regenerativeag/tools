@@ -1,7 +1,7 @@
 package org.regenagcoop
 
 import org.regenagcoop.discord.model.GuildId
-import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.model.config.ActiveMemberConfig
 import org.regenagcoop.tools.GlobalObjectMapper
 import java.io.File
 

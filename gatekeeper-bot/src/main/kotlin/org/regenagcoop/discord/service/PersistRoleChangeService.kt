@@ -1,7 +1,7 @@
 package org.regenagcoop.discord.service
 
 import org.regenagcoop.discord.Discord
-import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.model.config.ActiveMemberConfig
 import org.regenagcoop.model.RoleChange
 
 class PersistRoleChangeService(

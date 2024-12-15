@@ -6,7 +6,7 @@ import org.regenagcoop.*
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.client.RoomsDiscordClient
 import org.regenagcoop.discord.service.PersistedActivityService
-import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.model.config.ActiveMemberConfig
 import kotlin.test.Ignore
 import kotlin.test.assertEquals
 

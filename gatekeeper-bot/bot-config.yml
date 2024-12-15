@@ -43,19 +43,122 @@ excludedUserIds:
 #     - Remove role X if the user hasn't posted on at least Y unique days in a period of Z days
 roleConfigs:
 
-  # visitor
+  # Inactive
+  - roleId: 101010 # TODO #26: "Inactive" roleId
+    paths:
+      # The user is a Visitor, has made no posts or reactions in the last 7 days, and they joined some time before 7 days ago
+      - daysToConsider: 7
+        rule:
+          type: and
+          rules:
+            - type: has_role
+              roleId: 0 # visitor (no role)
+            - type: no_posts_or_reactions
+            - type: joined_before
+      # The user is a Guest, and has made no posts or reactions in the last 14 days
+      - daysToConsider: 14
+        rule:
+          type: and
+          rules:
+            - type: has_role
+              roleId: 1240396803946582056 # Guest
+            - type: no_posts_or_reactions
+      # The user is an Inactive Member, and has made no posts or reactions in the last 365 days
+      - daysToConsider: 365
+        rule:
+          type: and
+          rules:
+            - type: has_role
+              roleId: 202020 # TODO #26: "Inactive Member" roleId
+            - type: no_posts_or_reactions
+
+  # Inactive Member
+  - roleId: 202020 # TODO #26: "Inactive Member" roleId
+    paths:
+      # The user is a Member, and has made no posts or reactions in the last 60 days
+      - daysToConsider: 60
+        rule:
+          type: and
+          rules:
+            - type: has_role
+              roleId: 111111 # TODO #26: "Member" roleId
+            - type: no_posts_or_reactions
+
+  # Visitor
   - roleId: 0 # no role
     paths:
-      # The user has the "Inactive" role and reacts with a 👍 in #quiet-garden
+      # The user has the "Inactive" role, and reacts with a 👍 in #quiet-garden
       - daysToConsider: 0 # no post or reaction history used, only current state
         rule:
           type: and
           rules:
             - type: has_role
-              roleId: 0 # TODO #26: "Inactive" roleId
+              roleId: 101010 # TODO #26: "Inactive" roleId
             - type: reacted
               emoji: "👍"
-              messageId: 0 # TODO #26: id of message in quiet garden
+              messageId: 1234567890 # TODO #26: id of message in quiet garden
+
+  # Guest
+  - roleId: 1240396803946582056
+    paths:
+      # The user is a Visitor, and has at least 1 post in the last 14 days
+      - daysToConsider: 14
+        rule:
+          type: and
+          rules:
+            - type: has_role
+              roleId: 0 # no active role, aka visitor
+            - type: post_days
+              atLeast: 1
+
+  # Member
+  - roleId: 111111 # TODO #26: "Member" roleId
+    paths:
+      # The user is a Guest, and has at least 4 posts in the last 60 days
+      - daysToConsider: 60
+        rule:
+          type: and
+          rules:
+            - type: has_role
+              roleId: 1240396803946582056 # Guest
+            - type: post_days
+              atLeast: 4
+      # The user has the "Inactive Member" role, and reacts with a 👍 in #quiet-garden
+      - daysToConsider: 0 # no post or reaction history used, only current state
+        rule:
+          type: and
+          rules:
+            - type: has_role
+              roleId: 202020 # TODO #26: "Inactive Member" roleId
+            - type: reacted
+              emoji: "👍"
+              messageId: 1234567890 # TODO #26: id of message in quiet garden
+
+  # Active Member
+  - roleId: 1223026651340996698
+    paths:
+      # The user is a Member, and has posted on at least 8 days and 4 weeks in the last 60 days
+      - daysToConsider: 60
+        rule:
+          type: and
+          rules:
+            - type: has_role
+              roleId: 111111 # TODO #26: "Member" roleId
+            - type: post_days
+              atLeast: 8
+            - type: post_weeks
+              atLeast: 4
+      # Grace period: The user was an Active Member in the last 7 days, and has made a post in the last 7 days
+      - daysToConsider: 7
+        rule:
+          type: and
+          rules:
+            - type: previously_had_role
+              roleId: 1223026651340996698 # Active Member
+            - type: post_days
+              atLeast: 1
+
+
 # TODO #26: incorporate this existing config (eg welcome messages)
 # TODO #26: create and test remaining roles
 #  # Guest

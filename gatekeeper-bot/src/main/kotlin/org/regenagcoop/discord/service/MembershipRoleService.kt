@@ -1,6 +1,5 @@
 package org.regenagcoop.discord.service
 
-import kotlinx.datetime.Clock
 import mu.KotlinLogging
 import org.regenagcoop.Database
 import org.regenagcoop.coroutine.parallelForEachIO
@@ -9,8 +8,9 @@ import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.model.RoleId
 import org.regenagcoop.discord.model.UserId
-import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.model.config.ActiveMemberConfig
 import org.regenagcoop.model.RoleChange
+import org.regenagcoop.model.config.RoleConfig
 import java.time.Instant
 
 /** A DiscordClient which posts messages to appropriate rooms when adding/removing roles */
@@ -27,7 +27,7 @@ class MembershipRoleService(
      * If the user already has some other active member role, remove that role.
      */
     suspend fun addMembershipRoleToUsers(
-        roleConfig: ActiveMemberConfig.RoleConfig, userIds: Set<UserId>
+        roleConfig: RoleConfig, userIds: Set<UserId>
     ) {
         val roleId = roleConfig.roleId
         val roleName = roleNameCache.lookup(roleId)
@@ -68,7 +68,7 @@ class MembershipRoleService(
     }
 
     /** Post messages to appropriate rooms */
-    private suspend fun handleRoleChanged(userId: UserId, previousRoleIds: Collection<RoleId>, newRoleConfig: ActiveMemberConfig.RoleConfig?) {
+    private suspend fun handleRoleChanged(userId: UserId, previousRoleIds: Collection<RoleId>, newRoleConfig: RoleConfig?) {
         val newRoleId = newRoleConfig?.roleId
         val roleChangeTimestamp = Instant.now()
 

@@ -6,7 +6,7 @@ import kotlinx.coroutines.sync.withLock
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.UserId
-import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.model.config.ActiveMemberConfig
 import java.time.LocalDate
 
 class PersistReactionService(

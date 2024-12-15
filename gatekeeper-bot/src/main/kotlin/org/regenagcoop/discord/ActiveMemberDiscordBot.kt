@@ -8,12 +8,13 @@ import mu.KotlinLogging
 import org.regenagcoop.Database
 import org.regenagcoop.coroutine.TopLevelJob.Companion.awaitEndlessJobs
 import org.regenagcoop.coroutine.TopLevelJob.Companion.createTopLevelJob
-import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.model.config.ActiveMemberConfig
 import org.regenagcoop.model.PostHistory
 import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.Reaction
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.discord.service.*
+import org.regenagcoop.model.config.RoleConfig
 import java.time.*
 import java.time.temporal.ChronoUnit
 
@@ -166,7 +167,7 @@ class ActiveMemberDiscordBot(
         internal fun getTodaysDate() = LocalDate.now(ZoneOffset.UTC)
 
         /** Determine whether the user should have the role identified by [roleConfig], given the user's [postDays] */
-        internal fun meetsThreshold(roleConfig: ActiveMemberConfig.RoleConfig, postDays: Set<LocalDate>, today: LocalDate): Boolean {
+        internal fun meetsThreshold(roleConfig: RoleConfig, postDays: Set<LocalDate>, today: LocalDate): Boolean {
             // TODO #26: update logic and parameters
 //            val earliestAddDate = today.minusDays(roleConfig.addRoleConfig.windowSize - 1L)
 //            val earliestKeepDate = today.minusDays(roleConfig.keepRoleConfig.windowSize - 1L)

@@ -2,9 +2,11 @@ package org.regenagcoop.discord
 
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
-import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.model.config.ActiveMemberConfig
 import org.regenagcoop.model.PostHistory
 import org.regenagcoop.discord.model.UserId
+import org.regenagcoop.model.config.DowngradeMessageConfig
+import org.regenagcoop.model.config.PersistenceConfig
 import kotlin.test.assertEquals
 
 
@@ -20,8 +22,8 @@ class ActiveMemberDiscordBotTest {
                     listOf(
                         // TODO #26: redefine roles and test cases
                     ),
-                    ActiveMemberConfig.DowngradeMessageConfig(0uL, "template"),
-                    ActiveMemberConfig.PersistenceConfig(0uL),
+                    DowngradeMessageConfig(0uL, "template"),
+                    PersistenceConfig(0uL),
             )
     ) {
         EMPTY(),

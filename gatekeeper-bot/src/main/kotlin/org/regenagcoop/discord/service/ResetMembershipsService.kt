@@ -6,8 +6,9 @@ import org.regenagcoop.discord.ActiveMemberDiscordBot
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.model.UserId
-import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.model.config.ActiveMemberConfig
 import org.regenagcoop.model.PostHistory
+import org.regenagcoop.model.config.RoleConfig
 import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
 
@@ -51,7 +52,7 @@ class ResetMembershipsService(
 
 
     /** Ensure that the role identified by [roleConfig] includes exactly the members in [allMembersInRole] */
-    private suspend fun updateRoleMembers(allMembersInRole: Set<UserId>, roleConfig: ActiveMemberConfig.RoleConfig): UpdateResult {
+    private suspend fun updateRoleMembers(allMembersInRole: Set<UserId>, roleConfig: RoleConfig): UpdateResult {
         val roleName = discord.roleNameCache.lookup(roleConfig.roleId)
         suspend fun log(prefix: String, userIds: Set<UserId>) {
             val usernames = discord.users.mapUserIdsToNames(userIds).sorted()
