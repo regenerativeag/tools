@@ -114,7 +114,7 @@ roleConfigs:
   # Member
   - roleId: 111111 # TODO #26: "Member" roleId
     paths:
-      # The user is a Guest, and has at least 4 posts in the last 60 days
+      # The user is a Guest, and has made at least 4 posts in the last 60 days
       - daysToConsider: 60
         rule:
           type: and
@@ -123,6 +123,14 @@ roleConfigs:
               roleId: 1240396803946582056 # Guest
             - type: post_days
               atLeast: 4
+      # The user is an Active Member, and has made no posts or reactions in the last 30 days
+      - daysToConsider: 30
+        rule:
+          type: and
+          rules:
+            - type: has_role
+              roleId: 1223026651340996698 # Active Member
+            - type: no_posts_or_reactions
       # The user has the "Inactive Member" role, and reacts with a 👍 in #quiet-garden
       - daysToConsider: 0 # no post or reaction history used, only current state
         rule:
