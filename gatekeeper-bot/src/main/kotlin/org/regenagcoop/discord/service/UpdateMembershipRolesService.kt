@@ -20,7 +20,7 @@ class UpdateMembershipRolesService(
 ) : DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
 
-    private val roleDeterminationService = RoleDeterminationService(activeMemberConfig)
+    private val membershipRoleDeterminationService = MembershipRoleDeterminationService(activeMemberConfig)
 
     private val relevantReactionMessageIdEmojiPairs: Set<Pair<MessageId, String>> =
         activeMemberConfig.roleConfigs.flatMap { roleConfig ->
@@ -48,7 +48,7 @@ class UpdateMembershipRolesService(
         // get user info from discord
         // get user activity history from DB
         // call roleDeterminationService
-        // if returned role is null, remove all roles from user
+        // if returned role is null, OR returned roleId == 0, remove all roles from user
         // if returned role is non-null, add role to user.
 //        logger.debug { "(Re)adding $roleName for $username (${message.userId})." }
     }

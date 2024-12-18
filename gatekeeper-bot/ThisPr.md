@@ -7,7 +7,7 @@ Define rules & logic:
 - re-implement "recalculate roles" functionality
   - Define such that there's a single function when called from on_react(), on_post(), or daily_reset()
   - Nullable "Action" parameter
-- call from on_react()
+- ✅ call from on_react()
 - update tests with "test" roles. Ensure rule logic works correctly
 - new test for special "reacted" code path
 
