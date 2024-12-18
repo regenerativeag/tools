@@ -43,6 +43,5 @@ sealed class Rule {
     data class Reacted(
         val emoji: String,
         val messageId: MessageId,
-        val removeReaction: Boolean = true,
     ): Rule()
 }

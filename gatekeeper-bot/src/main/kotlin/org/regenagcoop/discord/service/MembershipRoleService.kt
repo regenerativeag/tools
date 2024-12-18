@@ -13,7 +13,7 @@ import org.regenagcoop.model.RoleChange
 import org.regenagcoop.model.config.RoleConfig
 import java.time.Instant
 
-/** A DiscordClient which posts messages to appropriate rooms when adding/removing roles */
+/** Adds/removes roles & posts messages to appropriate rooms */
 class MembershipRoleService(
     discord: Discord,
     private val activeMemberConfig: ActiveMemberConfig,
@@ -27,7 +27,8 @@ class MembershipRoleService(
      * If the user already has some other active member role, remove that role.
      */
     suspend fun addMembershipRoleToUsers(
-        roleConfig: RoleConfig, userIds: Set<UserId>
+        roleConfig: RoleConfig,
+        userIds: Set<UserId>
     ) {
         val roleId = roleConfig.roleId
         val roleName = roleNameCache.lookup(roleId)

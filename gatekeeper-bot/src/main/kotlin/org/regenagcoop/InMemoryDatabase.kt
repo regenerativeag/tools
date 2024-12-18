@@ -3,8 +3,6 @@ package org.regenagcoop
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import mu.KotlinLogging
-import org.regenagcoop.Database.Companion.AddPostResult
-import org.regenagcoop.Database.Companion.AddReactionResult
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActivityHistory
 import org.regenagcoop.model.RoleChange
@@ -38,7 +36,7 @@ class InMemoryDatabase(initialData: ActivityHistory) {
         }
     }
 
-    suspend fun addPost(userId: UserId, date: LocalDate): AddPostResult {
+    suspend fun addPost(userId: UserId, date: LocalDate): Boolean {
         mutex.withLock {
             if (userId !in postHistory) {
                 postHistory[userId] = mutableSetOf()
@@ -48,11 +46,11 @@ class InMemoryDatabase(initialData: ActivityHistory) {
             if (firstPostOfDay) {
                 postDates.add(date)
             }
-            return AddPostResult(firstPostOfDay, postDates.toSet())
+            return firstPostOfDay
         }
     }
 
-    suspend fun addReaction(userId: UserId, date: LocalDate): AddReactionResult {
+    suspend fun addReaction(userId: UserId, date: LocalDate): Boolean {
         mutex.withLock {
             if (userId !in reactionHistory) {
                 reactionHistory[userId] = mutableSetOf()
@@ -62,7 +60,7 @@ class InMemoryDatabase(initialData: ActivityHistory) {
             if (firstReactionOfDay) {
                 reactionDays.add(date)
             }
-            return AddReactionResult(firstReactionOfDay)
+            return firstReactionOfDay
         }
     }
 
@@ -72,12 +70,6 @@ class InMemoryDatabase(initialData: ActivityHistory) {
                 roleChangeHistory[roleChange.userId] = mutableListOf()
             }
             roleChangeHistory[roleChange.userId]!!.add(roleChange)
-        }
-    }
-
-    suspend fun getPostHistory(): Map<UserId, Set<LocalDate>> {
-        mutex.withLock {
-            return postHistory.toMap()
         }
     }
 

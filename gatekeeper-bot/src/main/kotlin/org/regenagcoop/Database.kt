@@ -70,7 +70,7 @@ class Database(
         }
     }
 
-    suspend fun addPost(userId: UserId, date: LocalDate): AddPostResult {
+    suspend fun addPost(userId: UserId, date: LocalDate): Boolean {
         mutex.withLock {
             ensureInitialized()
             return inMemoryDatabase!!.addPost(userId, date)
@@ -80,7 +80,7 @@ class Database(
     suspend fun addReaction(userId: UserId, date: LocalDate) {
         mutex.withLock {
             ensureInitialized()
-            val (isFirstReactionOfDay) = inMemoryDatabase!!.addReaction(userId, date)
+            val isFirstReactionOfDay = inMemoryDatabase!!.addReaction(userId, date)
             if (isFirstReactionOfDay) {
                 persistReactionService!!.persistReaction(date, userId)
             }
@@ -92,13 +92,6 @@ class Database(
             ensureInitialized()
             inMemoryDatabase!!.addRoleChange(roleChange)
             persistRoleChangeService.persistRoleChange(roleChange)
-        }
-    }
-
-    suspend fun getPostHistory(): Map<UserId, Set<LocalDate>> {
-        mutex.withLock {
-            ensureInitialized()
-            return inMemoryDatabase!!.getPostHistory()
         }
     }
 
@@ -138,10 +131,5 @@ class Database(
         if (!initialized) {
             throw IllegalStateException("Please call initialize() before calling this method.")
         }
-    }
-
-    companion object {
-        data class AddPostResult(val isFirstPostOfDay: Boolean, val postDays: Set<LocalDate>)
-        data class AddReactionResult(val isFirstReactionOfDay: Boolean)
     }
 }
