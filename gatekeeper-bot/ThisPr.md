@@ -4,7 +4,7 @@
 Define rules & logic:
 - ✅ Deserialize new rules from config
 - ✅ Define all rules
-- re-implement "recalculate roles" functionality
+- ✅ re-implement "recalculate roles" functionality
   - Define such that there's a single function when called from on_react(), on_post(), or daily_reset()
   - Nullable "Action" parameter
 - ✅ call from on_react()
