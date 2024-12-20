@@ -4,9 +4,11 @@
 Define rules & logic:
 - ✅ Deserialize new rules from config
 - ✅ Define all rules
-- ✅ re-implement "recalculate roles" functionality
-  - Define such that there's a single function when called from on_react(), on_post(), or daily_reset()
-  - Nullable "Action" parameter
+- re-implement "recalculate roles" functionality
+  - ✅ Define such that there's a single function when called from on_react(), on_post(), or daily_reset()
+  - ✅ Nullable "Action" parameter
+  - ✅ Evaluate various rules
+  - Gather required info before calling
 - ✅ call from on_react()
 - update tests with "test" roles. Ensure rule logic works correctly
 - new test for special "reacted" code path
