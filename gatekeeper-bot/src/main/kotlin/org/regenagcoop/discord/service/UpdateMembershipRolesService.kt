@@ -51,26 +51,21 @@ class UpdateMembershipRolesService(
 
         val user = usersDiscordClient.getUser(userId)
         val userActivityHistory = database.getUserActivityHistory(userId)
-        val roleConfig = membershipRoleDeterminationService.determineMembershipRole(today, user, userActivityHistory, triggeringAction)
+        val qualification = membershipRoleDeterminationService.determineMembershipRole(today, user, userActivityHistory, triggeringAction)
 
         val username = usernameCache.lookup(userId)
-        if (roleConfig == null) {
-            logger.debug { "User qualified for no roles. Removing roles from $username ($userId)."}
-            membershipRoleService.removeMembershipRolesFromUsers(setOf(userId))
-        } else {
-            val roleName = roleNameCache.lookupOrNoRole(roleConfig.roleId, activeMemberConfig)
-            logger.debug { "User qualified for role. (Re)adding $roleName for $username ($userId)." }
-            membershipRoleService.addMembershipRoleToUsers(roleConfig, setOf(userId))
-        }
+        val roleName = roleNameCache.lookupOrNoRole(qualification.roleConfig.roleId, activeMemberConfig)
+        logger.debug { "(Re)adding $roleName for $username ($userId)." }
+        membershipRoleService.addOrRemoveMembershipRoleFromUsers(qualification, setOf(userId))
     }
 
     suspend fun updateMembershipRolesForAllUsers(today: LocalDate) {
         // 1. fetch activity history for all users from DB
         val activityHistory = database.getActivityHistory()
 
-        // 2. fetch all users in all membership roles in parallel
-        val currentUserIdsByRoleId = activeMemberConfig.roleConfigs.parallelMapIO { roleConfig ->
-            roleConfig.roleId to usersDiscordClient.getUsersWithRole(roleConfig.roleId)
+        // 2. fetch all users in all membership roles in parallel (excluding those without membership roles)
+        val currentUserIdsByRoleId = activeMemberConfig.roleConfigs.filter { it.roleId != null }.parallelMapIO { roleConfig ->
+            roleConfig.roleId to usersDiscordClient.getUsersWithRole(roleConfig.roleId!!)
         }.toMap()
 
         val allRelevantUserIds = usersDiscordClient.filterToUsersCurrentlyInGuild(
@@ -80,12 +75,11 @@ class UpdateMembershipRolesService(
                 currentUserIdsByRoleId.values.flatten().toSet()
         )
 
-
         // TODO #26: optimization - if we cache the joinDate, we won't have to fetch every single user twice
         val allRelevantUsers = allRelevantUserIds.parallelMapIO(usersDiscordClient::getUser)
 
         // 4. Call roleDeterminationService for current relevant users
-        val userToRoleConfigPairs = allRelevantUsers.map { user ->
+        val userToQualificationPairs = allRelevantUsers.map { user ->
             val userId = user.userId
             val userActivityHistory = UserActivityHistory(
                 userId,
@@ -93,28 +87,21 @@ class UpdateMembershipRolesService(
                 activityHistory.reactionHistory[userId]?.toSet() ?: setOf(),
                 activityHistory.roleChangeHistory[userId]?.toList() ?: listOf()
             )
-            val roleConfig = membershipRoleDeterminationService.determineMembershipRole(today, user, userActivityHistory, null)
-            user to roleConfig
+            val qualification = membershipRoleDeterminationService.determineMembershipRole(today, user, userActivityHistory, null)
+            user to qualification
         }
 
         // 5. Group users by newly determined role
-        // TODO #26: test that grouping by null key works as expected here and below
-        val userIdsByRoleConfig = userToRoleConfigPairs.groupBy { it.second }.mapValues {
+        val userIdsByQualification = userToQualificationPairs.groupBy { it.second }.mapValues {
             it.value.map { (user, _) -> user.userId }.toSet()
         }
 
         // 6. Add role to each group of users in parallel, and remove role from those that were determined to have no role.
-        userIdsByRoleConfig.entries.parallelForEachIO { (roleConfig, userIds) ->
-            if (roleConfig == null) {
-                logger.debug { "Removing roles from users who qualified for no roles: $userIds"}
-                membershipRoleService.removeMembershipRolesFromUsers(userIds)
-            } else {
-                // TODO #26: we need the path the user qualified and the roleConfig, so we can have different messaging per path
-                val roleName = roleNameCache.lookupOrNoRole(roleConfig.roleId, activeMemberConfig)
-                val usernames = userIds.map { usernameCache.lookup(it) }.sorted()
-                logger.debug { "(Re)adding $roleName to: $usernames"}
-                membershipRoleService.addMembershipRoleToUsers(roleConfig, userIds)
-            }
+        userIdsByQualification.entries.parallelForEachIO { (qualification, userIds) ->
+            val roleName = roleNameCache.lookupOrNoRole(qualification.roleConfig.roleId, activeMemberConfig)
+            val usernames = userIds.map { usernameCache.lookup(it) }.sorted()
+            logger.debug { "(Re)adding $roleName to: $usernames"}
+            membershipRoleService.addOrRemoveMembershipRoleFromUsers(qualification, userIds)
         }
     }
 

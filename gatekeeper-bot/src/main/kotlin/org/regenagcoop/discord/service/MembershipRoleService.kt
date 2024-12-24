@@ -8,9 +8,9 @@ import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.model.RoleId
 import org.regenagcoop.discord.model.UserId
+import org.regenagcoop.model.Qualification
 import org.regenagcoop.model.config.ActiveMemberConfig
 import org.regenagcoop.model.RoleChange
-import org.regenagcoop.model.config.RoleConfig
 import java.time.Instant
 
 /** Adds/removes roles & posts messages to appropriate rooms */
@@ -26,53 +26,45 @@ class MembershipRoleService(
      *
      * If the user already has some other active member role, remove that role.
      */
-    suspend fun addMembershipRoleToUsers(
-        roleConfig: RoleConfig,
+    suspend fun addOrRemoveMembershipRoleFromUsers(
+        qualification: Qualification,
         userIds: Set<UserId>
     ) {
+        val roleConfig = qualification.roleConfig
         val roleId = roleConfig.roleId
         val roleName = roleNameCache.lookupOrNoRole(roleId, activeMemberConfig)
-
         val usernames = userIds.parallelMapIO { usernameCache.lookup(it) }
 
         userIds.zip(usernames).parallelForEachIO { (userId, username) ->
             val currentMembershipRoleIds = getCurrentMembershipRoleIds(userId)
-            if (roleId in currentMembershipRoleIds || roleId == 0uL && currentMembershipRoleIds.isEmpty()) {
-                logger.debug { "$username already has role $roleId ($roleName)" }
+            if (roleId in currentMembershipRoleIds || roleId == null && currentMembershipRoleIds.isEmpty()) {
+                logger.debug { "$username already has roleId=$roleId ($roleName)" }
             } else {
-                val roleIdsToRemove = currentMembershipRoleIds - roleId
-                if (roleIdsToRemove.size > 1) {
-                    logger.warn("Expected at most one role to remove while adding a role to a user... Removing $roleIdsToRemove from $userId")
+                if (currentMembershipRoleIds.size > 1) {
+                    logger.warn("Expected at most one role to remove while adding a role to a user... Removing $currentMembershipRoleIds from $userId")
                 }
-                discord.users.removeRolesFromUser(userId, roleIdsToRemove)
-                if (roleId != 0uL) {
+                discord.users.removeRolesFromUser(userId, currentMembershipRoleIds)
+                if (roleId != null) {
                     discord.users.addRoleToUser(userId, roleId)
                 }
-                handleRoleChanged(userId, roleIdsToRemove, roleConfig)
-            }
-        }
-    }
-
-    /** Remove all membership roles from the given users */
-    suspend fun removeMembershipRolesFromUsers(userIds: Set<UserId>) {
-        userIds.parallelForEachIO { inactiveMemberId ->
-            val currentMembershipRoleIds = getCurrentMembershipRoleIds(inactiveMemberId)
-            if (currentMembershipRoleIds.isNotEmpty()) {
-                discord.users.removeRolesFromUser(inactiveMemberId, currentMembershipRoleIds)
-                handleRoleChanged(inactiveMemberId, currentMembershipRoleIds, null)
+                handleRoleChanged(userId, currentMembershipRoleIds, qualification)
             }
         }
     }
 
     private suspend fun getCurrentMembershipRoleIds(userId: UserId): Set<RoleId> {
         val currentRoleIds = discord.users.getUserRoles(userId)
-        val membershipRoleIds = activeMemberConfig.roleConfigs.map { it.roleId }.toSet()
+        val membershipRoleIds = activeMemberConfig.roleConfigs.mapNotNull { it.roleId }.toSet()
         return currentRoleIds.intersect(membershipRoleIds)
     }
 
     /** Post messages to appropriate rooms */
-    private suspend fun handleRoleChanged(userId: UserId, previousRoleIds: Collection<RoleId>, newRoleConfig: RoleConfig?) {
-        val newRoleId = newRoleConfig?.roleId
+    private suspend fun handleRoleChanged(
+        userId: UserId,
+        previousRoleIds: Collection<RoleId>,
+        qualification: Qualification
+    ) {
+        val newRoleId = qualification.roleConfig.roleId
         val roleChangeTimestamp = Instant.now()
 
         // add RoleChange to the database
@@ -88,15 +80,18 @@ class MembershipRoleService(
         }
         roleChanges.forEach { database.addRoleChange(it) }
 
-        val roleIdxByRoleId = activeMemberConfig.roleConfigs.mapIndexed { idx, cfg -> cfg.roleId to idx }.toMap()
-        val previousRoleLevel = previousRoleIds.mapNotNull { roleIdxByRoleId[it] }.maxOrNull()
-        val newRoleLevel = newRoleId?.let { roleIdxByRoleId[newRoleId]!! }
+        val roleLevelByRoleId = activeMemberConfig.roleConfigs.mapIndexed { idx, cfg -> cfg.roleId to idx }.toMap()
+        val previousRoleLevel = if (previousRoleIds.isEmpty()) {
+            roleLevelByRoleId[null]!!
+        } else {
+            previousRoleIds.maxOf { roleLevelByRoleId[it]!! }
+        }
+        val newRoleLevel = roleLevelByRoleId[newRoleId]!!
 
         // Post upgrade and downgrade messages to appropriate room
-        val isUpgrade = newRoleLevel != null && (previousRoleLevel == null || newRoleLevel > previousRoleLevel)
+        val isUpgrade = newRoleLevel > previousRoleLevel
         if (isUpgrade) {
-            newRoleConfig!! // non-null due to isUpgrade == true
-            val welcomeConfig = newRoleConfig.welcomeMessageConfig
+            val welcomeConfig = qualification.path?.welcomeMessageConfig ?: qualification.roleConfig.welcomeMessageConfig
             if (welcomeConfig != null) {
                 val welcomeMessage = welcomeConfig.createWelcomeMessage(userId)
                 discord.rooms.postMessage(welcomeMessage, welcomeConfig.channel, listOf(userId))

@@ -17,7 +17,7 @@ sealed class Rule {
     /** True if the user currently has the role [roleId] */
     @JsonTypeName("has_role")
     data class HasRole(
-        val roleId: RoleId
+        val roleId: RoleId?
     ): Rule()
 
     /** True if the user joined before [Path.daysToConsider] days ago */
@@ -31,7 +31,7 @@ sealed class Rule {
     /** True if the user had [roleId] in the last [Path.daysToConsider] days */
     @JsonTypeName("previously_had_role")
     data class PreviouslyHadRole(
-        val roleId: RoleId
+        val roleId: RoleId?
     ): Rule()
 
     /** True if the user has posted on at least [atLeast] distinct UTC days in the last [Path.daysToConsider] days */

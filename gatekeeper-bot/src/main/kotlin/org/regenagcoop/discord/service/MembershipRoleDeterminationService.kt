@@ -1,5 +1,6 @@
 package org.regenagcoop.discord.service
 
+import org.regenagcoop.model.Qualification
 import org.regenagcoop.discord.model.User
 import org.regenagcoop.model.TriggeringAction
 import org.regenagcoop.model.UserActivityHistory
@@ -14,6 +15,15 @@ import java.time.temporal.WeekFields
 class MembershipRoleDeterminationService(
     private val activeMemberConfig: ActiveMemberConfig,
 ) {
+    private val noRoleRoleConfig = activeMemberConfig.roleConfigs.singleOrNull { it.roleId == null }
+        ?: throw IllegalArgumentException("The roleConfig must have a role defined with roleId==null")
+
+    init {
+        val allConfigsHaveUniqueRoleId = activeMemberConfig.roleConfigs.toSet().size == activeMemberConfig.roleConfigs.size
+        if (!allConfigsHaveUniqueRoleId) {
+            throw IllegalArgumentException("The roleConfig may only have one entry per roleId")
+        }
+    }
 
     /**
      * Determine which membership role the user should have.
@@ -24,33 +34,33 @@ class MembershipRoleDeterminationService(
         user: User,
         userActivity: UserActivityHistory,
         triggeringAction: TriggeringAction?,
-    ): RoleConfig? {
+    ): Qualification {
         // check roles in reverse order, so that user is granted the highest role they are qualified for
         for (roleConfig in activeMemberConfig.roleConfigs.reversed()) {
-            val qualified = isUserQualifiedForRole(roleConfig, today, user, userActivity, triggeringAction)
+            val qualifyingPath = findQualifyingPath(roleConfig, today, user, userActivity, triggeringAction)
 
-            if (qualified) {
-                return roleConfig
+            if (qualifyingPath != null) {
+                return Qualification(roleConfig, qualifyingPath)
             }
         }
 
-        return null
+        return Qualification(noRoleRoleConfig, null)
     }
 
-    private fun isUserQualifiedForRole(
+    private fun findQualifyingPath(
         roleConfig: RoleConfig,
         today: LocalDate,
         user: User,
         userActivity: UserActivityHistory,
         triggeringAction: TriggeringAction?,
-    ): Boolean {
+    ): Path? {
         for (path in roleConfig.paths) {
             val pathEvaluator = PathEvaluator(path, today, user, userActivity, triggeringAction)
             if (pathEvaluator.evaluate()) {
-                return true
+                return path
             }
         }
-        return false
+        return null
     }
 
     private class PathEvaluator(
@@ -85,7 +95,11 @@ class MembershipRoleDeterminationService(
                     return true
                 }
                 is Rule.HasRole -> {
-                    return rule.roleId in user.membershipRoles
+                    return if (rule.roleId == null) {
+                        user.membershipRoles.isEmpty()
+                    } else {
+                        rule.roleId in user.membershipRoles
+                    }
                 }
                 is Rule.JoinedBefore -> {
                     return user.joinTimestamp < earliestTimestampToConsider

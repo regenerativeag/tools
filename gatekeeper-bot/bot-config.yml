@@ -52,7 +52,7 @@ roleConfigs:
           type: and
           rules:
             - type: has_role
-              roleId: 0 # visitor (no role)
+              roleId: null # Visitor
             - type: no_posts_or_reactions
             - type: joined_before
       # The user is a Guest, and has made no posts or reactions in the last 14 days
@@ -84,8 +84,9 @@ roleConfigs:
               roleId: 111111 # TODO #26: "Member" roleId
             - type: no_posts_or_reactions
 
-  # Visitor
-  - roleId: 0 # no role
+  # Visitor (no role)
+  # Note: You _must_ have a config defined with roleId=null. This is the config that will be used for users that have no membership roles.
+  - roleId: null
     paths:
       # The user has the "Inactive" role, and reacts with a 👍 in #quiet-garden
       - daysToConsider: 0 # no post or reaction history used, only current state
@@ -107,7 +108,7 @@ roleConfigs:
           type: and
           rules:
             - type: has_role
-              roleId: 0 # no active role, aka visitor
+              roleId: null # no active role, aka visitor
             - type: post_days
               atLeast: 1
 

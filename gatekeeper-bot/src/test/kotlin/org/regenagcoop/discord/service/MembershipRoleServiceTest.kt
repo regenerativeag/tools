@@ -17,6 +17,7 @@ import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.discord.mock.CapturedMessage
 import org.regenagcoop.discord.mock.DiscordMocker
 import org.regenagcoop.model.ActivityHistory
+import org.regenagcoop.model.Qualification
 import java.time.LocalDate
 
 
@@ -121,24 +122,21 @@ class MembershipRoleServiceTest {
     fun testAddAndRemoveRoles(case: AddAndRemovalTestCase) = runBlocking {
         setupMocks(case)
 
-        if (case.newRoleId != null) {
-            // add/replace a role
-            val roleConfig = activeMemberConfig.roleConfigs.single { it.roleId == case.newRoleId }
-            membershipRoleService.addMembershipRoleToUsers(roleConfig, setOf(case.userId))
-            val alreadyHasRole = case.newRoleId in case.currentRoleIds
-            if (alreadyHasRole) {
-                assertDeletedRoleIdsFromUser(case.userId, listOf())
+        val roleConfig = activeMemberConfig.roleConfigs.single { it.roleId == case.newRoleId }
+        membershipRoleService.addOrRemoveMembershipRoleFromUsers(Qualification(roleConfig, null), setOf(case.userId))
+        val alreadyHasRole = case.newRoleId == null && case.currentRoleIds.isEmpty() || case.newRoleId in case.currentRoleIds
+        if (alreadyHasRole) {
+            assertDeletedRoleIdsFromUser(case.userId, listOf())
+            assertNoRoleAdded()
+        } else {
+            assertDeletedRoleIdsFromUser(case.userId, case.currentRoleIds)
+            if (case.newRoleId == null) {
                 assertNoRoleAdded()
             } else {
-                assertDeletedRoleIdsFromUser(case.userId, case.currentRoleIds)
                 assertAddedRoleId(case.userId, case.newRoleId)
             }
-        } else {
-            // remove all roles
-            membershipRoleService.removeMembershipRolesFromUsers(setOf(case.userId))
-            assertDeletedRoleIdsFromUser(case.userId, case.currentRoleIds)
-            assertNoRoleAdded()
         }
+
 
         discordMocker.assertCapturedMessagesEqual(*case.expectedMessages.toTypedArray())
     }
