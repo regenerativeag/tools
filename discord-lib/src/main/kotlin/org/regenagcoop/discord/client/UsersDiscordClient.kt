@@ -6,12 +6,14 @@ import dev.kord.rest.request.KtorRequestException
 import dev.kord.rest.route.Position
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.toJavaInstant
 import mu.KotlinLogging
 import org.regenagcoop.coroutine.parallelFilterIO
 import org.regenagcoop.coroutine.parallelForEachIO
 import org.regenagcoop.coroutine.parallelMapIO
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.RoleId
+import org.regenagcoop.discord.model.User
 import org.regenagcoop.discord.model.UserId
 
 class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
@@ -55,8 +57,17 @@ class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
             .toSet()
     }
 
+    suspend fun getUser(userId: UserId): User {
+        val discordUser = getGuildMember(userId)
+        return User(
+            discordUser.user.value!!.id.value,
+            discordUser.roles.map { it.value }.toSet(),
+            discordUser.joinedAt.toJavaInstant()
+        )
+    }
+
     suspend fun getUserRoles(userId: UserId): Set<RoleId> {
-        return getGuildMember(userId).roles.map { it.value }.toSet()
+        return getUser(userId).membershipRoles
     }
 
     suspend fun addRoleToUser(userId: UserId, roleId: RoleId) {

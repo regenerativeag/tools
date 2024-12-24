@@ -10,6 +10,7 @@ import org.regenagcoop.discord.service.*
 import org.regenagcoop.model.config.ActiveMemberConfig
 import org.regenagcoop.model.ActivityHistory
 import org.regenagcoop.model.RoleChange
+import org.regenagcoop.model.UserActivityHistory
 import java.time.LocalDate
 
 /**
@@ -92,6 +93,13 @@ class Database(
             ensureInitialized()
             inMemoryDatabase!!.addRoleChange(roleChange)
             persistRoleChangeService.persistRoleChange(roleChange)
+        }
+    }
+
+    suspend fun getUserActivityHistory(userId: UserId): UserActivityHistory {
+        mutex.withLock {
+            ensureInitialized()
+            return inMemoryDatabase!!.getUserActivityHistory(userId)
         }
     }
 

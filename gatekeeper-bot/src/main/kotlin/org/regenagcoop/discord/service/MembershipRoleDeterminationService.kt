@@ -1,6 +1,6 @@
 package org.regenagcoop.discord.service
 
-import org.regenagcoop.discord.model.RoleId
+import org.regenagcoop.discord.model.User
 import org.regenagcoop.model.TriggeringAction
 import org.regenagcoop.model.UserActivityHistory
 import org.regenagcoop.model.config.ActiveMemberConfig
@@ -21,13 +21,13 @@ class MembershipRoleDeterminationService(
      */
     fun determineMembershipRole(
         today: LocalDate,
-        currentMembershipRoles: Set<RoleId>,
+        user: User,
         userActivity: UserActivityHistory,
         triggeringAction: TriggeringAction?,
     ): RoleConfig? {
         // check roles in reverse order, so that user is granted the highest role they are qualified for
         for (roleConfig in activeMemberConfig.roleConfigs.reversed()) {
-            val qualified = isUserQualifiedForRole(roleConfig, today, currentMembershipRoles, userActivity, triggeringAction)
+            val qualified = isUserQualifiedForRole(roleConfig, today, user, userActivity, triggeringAction)
 
             if (qualified) {
                 return roleConfig
@@ -40,12 +40,12 @@ class MembershipRoleDeterminationService(
     private fun isUserQualifiedForRole(
         roleConfig: RoleConfig,
         today: LocalDate,
-        currentMembershipRoles: Set<RoleId>,
+        user: User,
         userActivity: UserActivityHistory,
         triggeringAction: TriggeringAction?,
     ): Boolean {
         for (path in roleConfig.paths) {
-            val pathEvaluator = PathEvaluator(path, today, currentMembershipRoles, userActivity, triggeringAction)
+            val pathEvaluator = PathEvaluator(path, today, user, userActivity, triggeringAction)
             if (pathEvaluator.evaluate()) {
                 return true
             }
@@ -53,10 +53,10 @@ class MembershipRoleDeterminationService(
         return false
     }
 
-    class PathEvaluator(
+    private class PathEvaluator(
         private val path: Path,
         private val today: LocalDate,
-        private val currentMembershipRoles: Set<RoleId>,
+        private val user: User,
         private val userActivity: UserActivityHistory,
         private val triggeringAction: TriggeringAction?
     ) {
@@ -85,10 +85,10 @@ class MembershipRoleDeterminationService(
                     return true
                 }
                 is Rule.HasRole -> {
-                    return rule.roleId in currentMembershipRoles
+                    return rule.roleId in user.membershipRoles
                 }
                 is Rule.JoinedBefore -> {
-                    return userActivity.joinedServerTimestamp < earliestTimestampToConsider
+                    return user.joinTimestamp < earliestTimestampToConsider
                 }
                 is Rule.NoPostsOrReactions -> {
                     val postCount = qualifyingPostDays.size

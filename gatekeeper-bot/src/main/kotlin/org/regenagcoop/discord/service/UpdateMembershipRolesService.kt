@@ -3,7 +3,9 @@ package org.regenagcoop.discord.service
 import mu.KotlinLogging
 import org.regenagcoop.Database
 import org.regenagcoop.discord.Discord
+import org.regenagcoop.discord.RoleNameCache
 import org.regenagcoop.discord.client.DiscordClient
+import org.regenagcoop.discord.client.UsersDiscordClient
 import org.regenagcoop.discord.model.MessageId
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.TriggeringAction
@@ -21,6 +23,7 @@ class UpdateMembershipRolesService(
     private val logger = KotlinLogging.logger { }
 
     private val membershipRoleDeterminationService = MembershipRoleDeterminationService(activeMemberConfig)
+    private val usersDiscordClient = UsersDiscordClient(discord)
 
     private val relevantReactionMessageIdEmojiPairs: Set<Pair<MessageId, String>> =
         activeMemberConfig.roleConfigs.flatMap { roleConfig ->
@@ -44,13 +47,19 @@ class UpdateMembershipRolesService(
             return
         }
 
-        // TODO #26: implement
-        // get user info from discord
-        // get user activity history from DB
-        // call roleDeterminationService
-        // if returned role is null, OR returned roleId == 0, remove all roles from user
-        // if returned role is non-null, add role to user.
-//        logger.debug { "(Re)adding $roleName for $username (${message.userId})." }
+        val user = usersDiscordClient.getUser(userId)
+        val userActivityHistory = database.getUserActivityHistory(userId)
+        val roleConfig = membershipRoleDeterminationService.determineMembershipRole(today, user, userActivityHistory, triggeringAction)
+
+        val username = discord.usernameCache.lookup(userId)
+        if (roleConfig == null || roleConfig.roleId == 0uL) {
+            logger.debug { "User qualified for no roles. Removing roles from $username ($userId)."}
+            membershipRoleService.removeMembershipRolesFromUsers(setOf(userId))
+        } else {
+            val roleName = discord.roleNameCache.lookup(roleConfig.roleId)
+            logger.debug { "User qualified for role. (Re)adding $roleName for $username ($userId)." }
+            membershipRoleService.addMembershipRoleToUsers(roleConfig, setOf(userId))
+        }
     }
 
     suspend fun updateMembershipRolesForAllUsers(today: LocalDate) {

@@ -6,6 +6,7 @@ import mu.KotlinLogging
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActivityHistory
 import org.regenagcoop.model.RoleChange
+import org.regenagcoop.model.UserActivityHistory
 import java.time.LocalDate
 
 class InMemoryDatabase(initialData: ActivityHistory) {
@@ -70,6 +71,17 @@ class InMemoryDatabase(initialData: ActivityHistory) {
                 roleChangeHistory[roleChange.userId] = mutableListOf()
             }
             roleChangeHistory[roleChange.userId]!!.add(roleChange)
+        }
+    }
+
+    suspend fun getUserActivityHistory(userId: UserId): UserActivityHistory {
+        mutex.withLock {
+            return UserActivityHistory(
+                userId,
+                postHistory[userId]?.toSet() ?: setOf(),
+                reactionHistory[userId]?.toSet() ?: setOf(),
+                roleChangeHistory[userId]?.toList() ?: listOf(),
+            )
         }
     }
 
