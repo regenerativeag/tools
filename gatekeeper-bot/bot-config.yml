@@ -28,23 +28,22 @@ excludedUserIds:
 
 
 
-# TODO #26: update docs
-# The membership roles in your server...
+# The rules for how users are granted membership roles in your server...
 #
 #   This is an ordered list.
 #     - Roles at the top of this list have the lowest priority.
-#     - When a role with a greater priority (lower in this file) is granted to a member, a "welcome message" is posted to
-#     a room.
+#     - If you define your rules such that a user can qualify for multiple roles at once, only the role with the highest priority (lowest in this list) will be granted to the user.
+#     - When a role with a greater priority (lower in this list) is granted to a member, a "welcome message" is posted to a room.
 #     - When a member is transitioned to a membership role with a lower priority, a "downgrade message" is posted to a
 #     room.
 #
-#   Each membership role is configured as follows
-#     - Grant role X if the user posts on Y unique days in a period of Z days
-#     - Remove role X if the user hasn't posted on at least Y unique days in a period of Z days
+#   There may be multiple ways a user can be granted a given role (aka paths). Each path to a role is defined through rules that you define.
+#
+# The null ruleId corresponds to a user without any membership roles.
 roleConfigs:
 
   # Inactive
-  - roleId: 101010 # TODO #26: "Inactive" roleId
+  - roleId: 101010
     paths:
       # The user is a Visitor, has made no posts or reactions in the last 7 days, and they joined some time before 7 days ago
       - daysToConsider: 7
@@ -69,11 +68,11 @@ roleConfigs:
           type: and
           rules:
             - type: has_role
-              roleId: 202020 # TODO #26: "Inactive Member" roleId
+              roleId: 202020 # Inactive member
             - type: no_posts_or_reactions
 
   # Inactive Member
-  - roleId: 202020 # TODO #26: "Inactive Member" roleId
+  - roleId: 202020
     paths:
       # The user is a Member, and has made no posts or reactions in the last 60 days
       - daysToConsider: 60
@@ -81,7 +80,7 @@ roleConfigs:
           type: and
           rules:
             - type: has_role
-              roleId: 111111 # TODO #26: "Member" roleId
+              roleId: 111111 # Member
             - type: no_posts_or_reactions
 
   # Visitor (no role)
@@ -94,10 +93,10 @@ roleConfigs:
           type: and
           rules:
             - type: has_role
-              roleId: 101010 # TODO #26: "Inactive" roleId
+              roleId: 101010 # Inactive
             - type: reacted
-              emoji: "👍"
-              messageId: 1234567890 # TODO #26: id of message in quiet garden
+              emoji: ":thumbsup:"
+              messageId: 1234567890
 
   # Guest
   - roleId: 1240396803946582056
@@ -111,9 +110,12 @@ roleConfigs:
               roleId: null # no active role, aka visitor
             - type: post_days
               atLeast: 1
+        welcomeMessageConfig:
+          channel: 1162017937796911209 # connect
+          template: "A warm hello to our newest guest, USER_MENTION :relaxed: Please check out our [Community Guide](https://regenagcoop.org/community-guide/) when you have a moment."
 
   # Member
-  - roleId: 111111 # TODO #26: "Member" roleId
+  - roleId: 111111
     paths:
       # The user is a Guest, and has made at least 4 posts in the last 60 days
       - daysToConsider: 60
@@ -124,6 +126,9 @@ roleConfigs:
               roleId: 1240396803946582056 # Guest
             - type: post_days
               atLeast: 4
+        welcomeMessageConfig:
+          channel: 1223262623194153111 # community
+          template: "Welcome to our community, USER_MENTION! :farmer:"
       # The user is an Active Member, and has made no posts or reactions in the last 30 days
       - daysToConsider: 30
         rule:
@@ -138,10 +143,13 @@ roleConfigs:
           type: and
           rules:
             - type: has_role
-              roleId: 202020 # TODO #26: "Inactive Member" roleId
+              roleId: 202020 # Inactive member
             - type: reacted
               emoji: "👍"
-              messageId: 1234567890 # TODO #26: id of message in quiet garden
+              messageId: 1234567890
+        welcomeMessageConfig:
+          channel: 1223262623194153111 # community
+          template: "Welcome back, USER_MENTION! :slight_smile:"
 
   # Active Member
   - roleId: 1223026651340996698
@@ -152,11 +160,14 @@ roleConfigs:
           type: and
           rules:
             - type: has_role
-              roleId: 111111 # TODO #26: "Member" roleId
+              roleId: 111111 # Member
             - type: post_days
               atLeast: 8
             - type: post_weeks
               atLeast: 4
+        welcomeMessageConfig:
+          channel: 1223262623194153111 # community
+          template: "Thanks for your participation, USER_MENTION! You are now an active member :partying_face:"
       # Grace period: The user was an Active Member in the last 7 days, and has made a post in the last 7 days
       - daysToConsider: 7
         rule:
@@ -168,35 +179,10 @@ roleConfigs:
               atLeast: 1
 
 
-# TODO #26: incorporate this existing config (eg welcome messages)
-# TODO #26: create and test remaining roles
-#  # Guest
-#  - roleId: 1240396803946582056
-#    addRoleConfig: # Grant the Guest role if the user posts on at least one day in the last 60 days
-#      windowSize: 60
-#      minPostDays: 1
-#    keepRoleConfig:
-#      windowSize: 60
-#      minPostDays: 1 # Remove the Guest role if the user hasn't posted on at least one day in the last 60 days
-#    welcomeMessageConfig:
-#      channel: 1162017937796911209 # connect
-#      template: "A warm hello to our newest guest, USER_MENTION :relaxed: Please check out our [Community Guide](https://regenagcoop.org/community-guide/) when you have a moment."
-#  # Active Member
-#  - roleId: 1223026651340996698
-#    addRoleConfig:
-#      windowSize: 60
-#      minPostDays: 4 # Grant the Active Member role if the member has posted on at least 4 different days (in GMT (UTC) timezone) in the last 60 days
-#    keepRoleConfig:
-#      windowSize: 30
-#      minPostDays: 1 # Remove the Active Member role if the member hasn't posted on at least 1 day in the last 30 days
-#    welcomeMessageConfig:
-#      channel: 1223262623194153111 # community
-#      template: "Welcome to our community, USER_MENTION!"
 
-
-
-# The name to log when a user qualifies for no roles, and/or the roleConfig with roleId=0
-noRoleName: "Visitor"
+# The name to log when a user qualifies for no roles, and/or the roleConfig with roleId=null
+# This configuration uses a YAML anchor (&), and an alias below (*) is used to refer to the same value "Visitor" in both places.
+noRoleName: &noRoleName "Visitor"
 
 
 
@@ -204,7 +190,7 @@ noRoleName: "Visitor"
 downgradeMessageConfig:
   channel: 1230667079213125702 # moderation-log
   template: "USERNAME has transitioned from PREVIOUS_ROLE to CURRENT_ROLE."
-  noRoleName: "Visitor (no role)"
+  noRoleName: *noRoleName
 
 
 

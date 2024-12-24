@@ -91,7 +91,7 @@ class MembershipRoleService(
         // Post upgrade and downgrade messages to appropriate room
         val isUpgrade = newRoleLevel > previousRoleLevel
         if (isUpgrade) {
-            val welcomeConfig = qualification.path?.welcomeMessageConfig ?: qualification.roleConfig.welcomeMessageConfig
+            val welcomeConfig = qualification.path?.welcomeMessageConfig
             if (welcomeConfig != null) {
                 val welcomeMessage = welcomeConfig.createWelcomeMessage(userId)
                 discord.rooms.postMessage(welcomeMessage, welcomeConfig.channel, listOf(userId))

@@ -5,7 +5,7 @@ import org.regenagcoop.discord.model.ChannelId
 data class DowngradeMessageConfig(
     val channel: ChannelId,
     val template: String,
-    val noRoleName: String = "(no role)",
+    val noRoleName: String = "NO_ROLE",
     val usernamePlaceholder: String = "USERNAME",
     val previousRolePlaceholder: String = "PREVIOUS_ROLE",
     val currentRolePlaceholder: String = "CURRENT_ROLE",

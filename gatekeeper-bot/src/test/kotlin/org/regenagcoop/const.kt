@@ -23,8 +23,18 @@ object ChannelIds {
     val persistenceLog = 1279607063646965921uL
 }
 
+object MessageIds {
+    // TODO #26: use real id
+    val quietGardenMessage = 1234567890uL
+}
+
 object RoleIds {
+    // TODO #26: use real roleIds (inactive, inactiveMember, member)
+    val inactive = 101010uL
+    val inactiveMember = 202020uL
+    val visitor: ULong? = null
     val guest = 1240396803946582056uL
+    val member = 111111uL
     val activeMember = 1223026651340996698uL
 }
 
