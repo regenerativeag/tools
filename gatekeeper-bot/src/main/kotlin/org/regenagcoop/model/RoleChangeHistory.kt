@@ -1,3 +1,5 @@
 package org.regenagcoop.model
 
-typealias RoleChangeHistory = List<RoleChange>
+import org.regenagcoop.discord.model.UserId
+
+typealias RoleChangeHistory = Map<UserId, List<RoleChange>>

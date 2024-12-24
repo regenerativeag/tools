@@ -31,13 +31,13 @@ class MembershipRoleService(
         userIds: Set<UserId>
     ) {
         val roleId = roleConfig.roleId
-        val roleName = roleNameCache.lookup(roleId)
+        val roleName = roleNameCache.lookupOrNoRole(roleId, activeMemberConfig)
 
         val usernames = userIds.parallelMapIO { usernameCache.lookup(it) }
 
         userIds.zip(usernames).parallelForEachIO { (userId, username) ->
             val currentMembershipRoleIds = getCurrentMembershipRoleIds(userId)
-            if (roleId in currentMembershipRoleIds) {
+            if (roleId in currentMembershipRoleIds || roleId == 0uL && currentMembershipRoleIds.isEmpty()) {
                 logger.debug { "$username already has role $roleId ($roleName)" }
             } else {
                 val roleIdsToRemove = currentMembershipRoleIds - roleId
@@ -45,7 +45,9 @@ class MembershipRoleService(
                     logger.warn("Expected at most one role to remove while adding a role to a user... Removing $roleIdsToRemove from $userId")
                 }
                 discord.users.removeRolesFromUser(userId, roleIdsToRemove)
-                discord.users.addRoleToUser(userId, roleId)
+                if (roleId != 0uL) {
+                    discord.users.addRoleToUser(userId, roleId)
+                }
                 handleRoleChanged(userId, roleIdsToRemove, roleConfig)
             }
         }
@@ -106,7 +108,7 @@ class MembershipRoleService(
 
     private suspend fun postDowngradeMessage(userId: UserId, previousRoleIds: Collection<RoleId>, newRoleId: RoleId?) {
         val username = usernameCache.lookup(userId)
-        val newRoleName = newRoleId?.let { roleNameCache.lookup(newRoleId) }
+        val newRoleName = newRoleId?.let { roleNameCache.lookupOrNoRole(it, activeMemberConfig) }
         val downgradeConfig = activeMemberConfig.downgradeMessageConfig
         val previousRoleName = concatRolesToString(previousRoleIds)
         val downgradeMessage = downgradeConfig.createDowngradeMessage(username, previousRoleName, newRoleName)
@@ -121,7 +123,7 @@ class MembershipRoleService(
         return if (roleIds.isEmpty()) {
             null
         } else {
-            val roleNames = roleIds.parallelMapIO { roleNameCache.lookup(it) }
+            val roleNames = roleIds.parallelMapIO { roleNameCache.lookupOrNoRole(it, activeMemberConfig) }
             roleNames.joinToString("+")
         }
     }

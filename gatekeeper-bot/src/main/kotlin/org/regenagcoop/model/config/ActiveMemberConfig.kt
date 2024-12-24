@@ -9,6 +9,7 @@ data class ActiveMemberConfig(
     val roleConfigs: List<RoleConfig>,
     val downgradeMessageConfig: DowngradeMessageConfig,
     val persistenceConfig: PersistenceConfig,
+    val noRoleName: String = "NO_ROLE",
 ) {
     private val maxWindowSize: UInt = roleConfigs.flatMap { cfg ->
         cfg.paths.map { path -> path.daysToConsider }

@@ -21,6 +21,7 @@ class PersistedActivityServiceTest {
             "Users who posted on 2016-11-08: 1, 2",
             "Users who reacted on 1940-04-06: 7, 77, 777, 999, 99, 9",
             "Users who posted on 2016-11-09: 1, 27",
+            "Role change occurred. 90 transitioned from 12 to 80 at 1888-03-01T06:06:37.828199800Z",
             "Users who posted on 2016-11-10: 2, 33",
             "Role change occurred. 10 transitioned from null to 202 at 2024-12-06T21:51:53.741160247Z",
             "Users who reacted on 2016-11-10: 298, 17, 33",
@@ -82,10 +83,13 @@ class PersistedActivityServiceTest {
                 setOf()
             )
         )
-        val expectedRoleChanges = listOf(
-            RoleChange(10uL, null, 202uL, Instant.parse("2024-12-06T21:51:53.741160247Z")),
-            RoleChange(189uL, 555uL, null, Instant.parse("2021-11-10T22:05:12.777169843Z")),
-            RoleChange(90uL, 12uL, 80uL, Instant.parse("1997-03-01T06:06:37.828199800Z")),
+        val expectedRoleChanges = mapOf(
+            10uL to listOf(RoleChange(10uL, null, 202uL, Instant.parse("2024-12-06T21:51:53.741160247Z"))),
+            189uL to listOf(RoleChange(189uL, 555uL, null, Instant.parse("2021-11-10T22:05:12.777169843Z"))),
+            90uL to listOf(
+                RoleChange(90uL, 12uL, 80uL, Instant.parse("1888-03-01T06:06:37.828199800Z")),
+                RoleChange(90uL, 12uL, 80uL, Instant.parse("1997-03-01T06:06:37.828199800Z"))
+            ),
         )
         val expected = PersistedActivityHistory(expectedPostsAndReactions, expectedRoleChanges)
 

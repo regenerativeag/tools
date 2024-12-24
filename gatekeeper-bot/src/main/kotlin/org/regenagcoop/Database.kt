@@ -51,11 +51,11 @@ class Database(
             this.initialized = true
             this.startupDate = startupDate
 
-            val (activityHistory, persistedDates, persistedHistoryMessages) = fetchActivityHistory()
+            val (activityHistory, persistedDates, persistedHistoryMessages) = _fetchActivityHistory()
 
             this.persistReactionService = PersistReactionService(discord, activeMemberConfig, startupDate, persistedHistoryMessages)
 
-            persistMissingPostHistory(activityHistory, persistedDates)
+            _persistMissingPostHistory(activityHistory, persistedDates)
 
             this.inMemoryDatabase = InMemoryDatabase(activityHistory)
         }
@@ -103,12 +103,18 @@ class Database(
         }
     }
 
+    suspend fun getActivityHistory(): ActivityHistory {
+        mutex.withLock {
+            return inMemoryDatabase!!.getActivityHistory()
+        }
+    }
+
     /**
      * Must be called within [mutex]
      *
      * Reasoning for internal instead of private: for tests to override and simplify with mock data.
      */
-    internal suspend fun fetchActivityHistory(): Triple<ActivityHistory, Set<LocalDate>, List<Message>> {
+    internal suspend fun _fetchActivityHistory(): Triple<ActivityHistory, Set<LocalDate>, List<Message>> {
         logger.debug { "Reading from persistence log" }
         val persistedHistoryMessages = persistedActivityService.fetchPersistedHistoryMessages()
 
@@ -126,7 +132,7 @@ class Database(
      *
      * Reasoning for internal instead of private: for tests to override and simplify with mock data.
      */
-    internal suspend fun persistMissingPostHistory(activityHistory: ActivityHistory, persistedDates: Set<LocalDate>) {
+    internal suspend fun _persistMissingPostHistory(activityHistory: ActivityHistory, persistedDates: Set<LocalDate>) {
         logger.debug { "Persisting missing post history into persistence channel" }
         persistPostsService.persistMissingPostHistory(
             startupDate!!,

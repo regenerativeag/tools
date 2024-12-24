@@ -194,6 +194,11 @@ roleConfigs:
 
 
 
+# The name to log when a user qualifies for no roles, and/or the roleConfig with roleId=0
+noRoleName: "Visitor"
+
+
+
 # Post this message when a member transitions to a membership role with a lower priority order than the role they had.
 downgradeMessageConfig:
   channel: 1230667079213125702 # moderation-log

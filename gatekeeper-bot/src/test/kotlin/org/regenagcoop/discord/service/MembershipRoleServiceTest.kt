@@ -99,14 +99,14 @@ class MembershipRoleServiceTest {
     private val discordMocker = DiscordMocker(restClient)
     private val database = spyk(Database(discordMocker.mock, activeMemberConfig)).also { dbSpy ->
         // start database with no activity history
-        val emptyActivityHistory = ActivityHistory(mapOf(), mapOf(), listOf())
+        val emptyActivityHistory = ActivityHistory(mapOf(), mapOf(), mapOf())
         coEvery {
-            dbSpy.fetchActivityHistory()
+            dbSpy._fetchActivityHistory()
         }.returns(Triple(emptyActivityHistory, setOf(), listOf()))
 
         // don't try to persist empty history, which would add a bunch of empty post history messages to the discordMocker
         coEvery {
-            dbSpy.persistMissingPostHistory(emptyActivityHistory, setOf())
+            dbSpy._persistMissingPostHistory(emptyActivityHistory, setOf())
         }.just(runs)
 
         runBlocking {

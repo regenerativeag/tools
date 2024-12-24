@@ -29,11 +29,8 @@ class InMemoryDatabase(initialData: ActivityHistory) {
             reactionHistory[userId] = dates.toMutableSet()
         }
 
-        initialData.roleChangeHistory.forEach { roleChange ->
-            if (roleChange.userId !in roleChangeHistory) {
-                roleChangeHistory[roleChange.userId] = mutableListOf()
-            }
-            roleChangeHistory[roleChange.userId]!!.add(roleChange)
+        initialData.roleChangeHistory.forEach { (userId, roleChanges) ->
+            roleChangeHistory[userId] = roleChanges.toMutableList()
         }
     }
 
@@ -81,6 +78,16 @@ class InMemoryDatabase(initialData: ActivityHistory) {
                 postHistory[userId]?.toSet() ?: setOf(),
                 reactionHistory[userId]?.toSet() ?: setOf(),
                 roleChangeHistory[userId]?.toList() ?: listOf(),
+            )
+        }
+    }
+
+    suspend fun getActivityHistory(): ActivityHistory {
+        mutex.withLock {
+            return ActivityHistory(
+                postHistory.mapValues { it.value.toSet() },
+                reactionHistory.mapValues { it.value.toSet() },
+                roleChangeHistory.mapValues { it.value.toList() }
             )
         }
     }

@@ -47,7 +47,7 @@ class PersistedActivityService(
         }
 
         val persistedHistoryByDate = mutableMapOf<LocalDate, UsersWhoPostedAndReacted>()
-        val roleChanges = mutableListOf<RoleChange>()
+        val roleChangesByUserId = mutableMapOf<UserId, MutableList<RoleChange>>()
 
         persistedHistoryMessages.forEach { message ->
             val postPrefix = "Users who posted on "
@@ -82,7 +82,10 @@ class PersistedActivityService(
                     val toRoleId = parseRoleId(result.groupValues[3])
                     val timestamp = Instant.parse(result.groupValues[4])
                     val roleChange = RoleChange(userId, fromRoleId, toRoleId, timestamp)
-                    roleChanges.add(roleChange)
+                    if (userId !in roleChangesByUserId) {
+                        roleChangesByUserId[userId] = mutableListOf()
+                    }
+                    roleChangesByUserId[userId]!!.add(roleChange)
                 }
                 else -> throw IllegalStateException("Unexpected message in persistence channel: ${message.text}")
             }
@@ -90,7 +93,7 @@ class PersistedActivityService(
 
         return PersistedActivityHistory(
             persistedHistoryByDate,
-            roleChanges
+            roleChangesByUserId
         )
     }
 

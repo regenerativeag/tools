@@ -4,8 +4,6 @@ import dev.kord.common.entity.DiscordGuildMember
 import dev.kord.common.entity.Snowflake
 import dev.kord.rest.request.KtorRequestException
 import dev.kord.rest.route.Position
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.datetime.toJavaInstant
 import mu.KotlinLogging
 import org.regenagcoop.coroutine.parallelFilterIO
