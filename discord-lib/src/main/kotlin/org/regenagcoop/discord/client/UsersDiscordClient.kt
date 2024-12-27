@@ -23,17 +23,13 @@ class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
         return discordMember.toUser()
     }
 
-    suspend fun getUserRoles(userId: UserId): Set<RoleId> {
-        return getUser(userId).membershipRoles
-    }
-
     suspend fun addRoleToUser(userId: UserId, roleId: RoleId) {
         addRoleToGuildMember(userId, roleId)
     }
 
     /** Remove [roleIds] from [userId]. Returns the roles that were actually removed */
     suspend fun removeRolesFromUser(userId: UserId, roleIds: Collection<RoleId>): Set<RoleId> {
-        val currentRoleIds = getUserRoles(userId)
+        val currentRoleIds = getUser(userId).roles
         val roleIdsToRemove = currentRoleIds.intersect(roleIds.toSet())
         deleteRolesFromGuildMember(userId, roleIdsToRemove)
         return roleIdsToRemove

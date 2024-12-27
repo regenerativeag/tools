@@ -11,6 +11,7 @@ import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.Qualification
 import org.regenagcoop.model.config.ActiveMemberConfig
 import org.regenagcoop.model.RoleChange
+import org.regenagcoop.model.getMembershipRoleIds
 import java.time.Instant
 
 /** Adds/removes roles & posts messages to appropriate rooms */
@@ -53,9 +54,7 @@ class MembershipRoleService(
     }
 
     private suspend fun getCurrentMembershipRoleIds(userId: UserId): Set<RoleId> {
-        val currentRoleIds = discord.users.getUserRoles(userId)
-        val membershipRoleIds = activeMemberConfig.roleConfigs.mapNotNull { it.roleId }.toSet()
-        return currentRoleIds.intersect(membershipRoleIds)
+        return discord.users.getUser(userId).getMembershipRoleIds(activeMemberConfig)
     }
 
     /** Post messages to appropriate rooms */
@@ -115,10 +114,12 @@ class MembershipRoleService(
      * ...If so, join them together into one string
      */
     suspend fun concatRolesToString(roleIds: Collection<RoleId>): String? {
-        return if (roleIds.isEmpty()) {
+        val membershipRoleIds = roleIds.intersect(activeMemberConfig.membershipRoleIds)
+
+        return if (membershipRoleIds.isEmpty()) {
             null
         } else {
-            val roleNames = roleIds.parallelMapIO { roleNameCache.lookupOrNoRole(it, activeMemberConfig) }
+            val roleNames = membershipRoleIds.parallelMapIO { roleNameCache.lookupOrNoRole(it, activeMemberConfig) }
             roleNames.joinToString("+")
         }
     }

@@ -27,4 +27,6 @@ data class ActiveMemberConfig(
             today.minusDays(daysToLookBack.toLong() - 1L)
         }
     }
+
+    val membershipRoleIds = roleConfigs.mapNotNull { it.roleId }.toSet()
 }

@@ -4,6 +4,6 @@ import java.time.Instant
 
 data class User(
     val userId: UserId,
-    val membershipRoles: Set<RoleId>,
+    val roles: Set<RoleId>,
     val joinTimestamp: Instant,
 )

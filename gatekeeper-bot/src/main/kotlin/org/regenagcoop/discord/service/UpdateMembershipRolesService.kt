@@ -3,7 +3,6 @@ package org.regenagcoop.discord.service
 import mu.KotlinLogging
 import org.regenagcoop.Database
 import org.regenagcoop.coroutine.parallelForEachIO
-import org.regenagcoop.coroutine.parallelMapIO
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.client.UsersDiscordClient
@@ -58,7 +57,7 @@ class UpdateMembershipRolesService(
         if (qualification == null) {
             logger.debug { "User qualified for no role changes due to ${TriggeringAction::class.simpleName}. UserId=$userId ($username)" }
         } else {
-            val currentRoleName = membershipRoleService.concatRolesToString(user.membershipRoles)
+            val currentRoleName = membershipRoleService.concatRolesToString(user.roles)
             val newRoleName = roleNameCache.lookupOrNoRole(qualification.roleConfig.roleId, activeMemberConfig)
             logger.debug { "Updating user's role. User qualified for a role change due to ${TriggeringAction::class.simpleName}. Current Role: $currentRoleName. New Role: $newRoleName. UserId=$userId ($username)" }
             membershipRoleService.addOrRemoveMembershipRoleFromUsers(qualification, setOf(userId))
@@ -95,7 +94,7 @@ class UpdateMembershipRolesService(
         usersByQualification.entries.parallelForEachIO { (qualification, users) ->
             val userTriples = users.map { user ->
                 val username = usernameCache.lookup(user.userId)
-                val oldRoleName = membershipRoleService.concatRolesToString(user.membershipRoles)
+                val oldRoleName = membershipRoleService.concatRolesToString(user.roles)
                 Triple(username, oldRoleName, user.userId)
             }
 

@@ -8,6 +8,7 @@ import org.regenagcoop.model.config.ActiveMemberConfig
 import org.regenagcoop.model.config.Path
 import org.regenagcoop.model.config.RoleConfig
 import org.regenagcoop.model.config.Rule
+import org.regenagcoop.model.getMembershipRoleIds
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.temporal.WeekFields
@@ -63,7 +64,7 @@ class MembershipRoleDeterminationService(
         return null
     }
 
-    private class PathEvaluator(
+    private inner class PathEvaluator(
         private val path: Path,
         private val today: LocalDate,
         private val user: User,
@@ -96,9 +97,10 @@ class MembershipRoleDeterminationService(
                 }
                 is Rule.HasRole -> {
                     return if (rule.roleId == null) {
-                        user.membershipRoles.isEmpty()
+                        val membershipRoleIds = user.getMembershipRoleIds(activeMemberConfig)
+                        membershipRoleIds.isEmpty()
                     } else {
-                        rule.roleId in user.membershipRoles
+                        rule.roleId in user.roles
                     }
                 }
                 is Rule.JoinedBefore -> {
