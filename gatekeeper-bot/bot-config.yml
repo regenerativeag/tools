@@ -43,7 +43,7 @@ excludedUserIds:
 roleConfigs:
 
   # Inactive
-  - roleId: 101010
+  - roleId: 1322321679006961664
     paths:
       # The user is a Visitor, has made no posts or reactions in the last 7 days, and they joined some time before 7 days ago
       - daysToConsider: 7
@@ -68,11 +68,11 @@ roleConfigs:
           type: and
           rules:
             - type: has_role
-              roleId: 202020 # Inactive member
+              roleId: 1322321901586087976 # Inactive member
             - type: no_posts_or_reactions
 
   # Inactive Member
-  - roleId: 202020
+  - roleId: 1322321901586087976
     paths:
       # The user is a Member, and has made no posts or reactions in the last 60 days
       - daysToConsider: 60
@@ -80,7 +80,7 @@ roleConfigs:
           type: and
           rules:
             - type: has_role
-              roleId: 111111 # Member
+              roleId: 1322322020284760196 # Member
             - type: no_posts_or_reactions
 
   # Visitor (no role)
@@ -93,10 +93,10 @@ roleConfigs:
           type: and
           rules:
             - type: has_role
-              roleId: 101010 # Inactive
+              roleId: 1322321679006961664 # Inactive
             - type: reacted
               emoji: ":thumbsup:"
-              messageId: 1234567890
+              messageId: 1322322546296885341 # message in quiet garden
 
   # Guest
   - roleId: 1240396803946582056
@@ -115,7 +115,7 @@ roleConfigs:
           template: "A warm hello to our newest guest, USER_MENTION :relaxed: Please check out our [Community Guide](https://regenagcoop.org/community-guide/) when you have a moment."
 
   # Member
-  - roleId: 111111
+  - roleId: 1322322020284760196
     paths:
       # The user is a Guest, and has made at least 4 posts in the last 60 days
       - daysToConsider: 60
@@ -143,10 +143,10 @@ roleConfigs:
           type: and
           rules:
             - type: has_role
-              roleId: 202020 # Inactive member
+              roleId: 1322321901586087976 # Inactive member
             - type: reacted
               emoji: "👍"
-              messageId: 1234567890
+              messageId: 1322322546296885341 # message in quiet garden
         welcomeMessageConfig:
           channel: 1223262623194153111 # community
           template: "Welcome back, USER_MENTION! :slight_smile:"
@@ -160,7 +160,7 @@ roleConfigs:
           type: and
           rules:
             - type: has_role
-              roleId: 111111 # Member
+              roleId: 1322322020284760196 # Member
             - type: post_days
               atLeast: 8
             - type: post_weeks
