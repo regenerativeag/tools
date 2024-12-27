@@ -2,13 +2,10 @@ package org.regenagcoop.discord.client
 
 import dev.kord.common.entity.DiscordGuildMember
 import dev.kord.common.entity.Snowflake
-import dev.kord.rest.request.KtorRequestException
 import dev.kord.rest.route.Position
 import kotlinx.datetime.toJavaInstant
 import mu.KotlinLogging
-import org.regenagcoop.coroutine.parallelFilterIO
 import org.regenagcoop.coroutine.parallelForEachIO
-import org.regenagcoop.coroutine.parallelMapIO
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.RoleId
 import org.regenagcoop.discord.model.User
@@ -17,51 +14,13 @@ import org.regenagcoop.discord.model.UserId
 class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
 
-    suspend fun mapUserIdsToNames(userIds: Iterable<UserId>): List<String> {
-        return userIds.parallelMapIO { usernameCache.lookup(it) }
-    }
-
-    /** Of the users provided, only return the users which are still in the guild */
-    suspend fun filterToUsersCurrentlyInGuild(userIds: Set<UserId>): Set<UserId> {
-        return userIds.parallelFilterIO {
-            try {
-                getGuildMember(it)
-                true
-            } catch (e: KtorRequestException) {
-                if (e.status.code == 404) {
-                    false
-                } else {
-                    throw e
-                }
-            }
-        }.toSet()
-    }
-
-    /** Fetch the users with the given roleId */
-    suspend fun getUsersWithRole(roleId: RoleId): Set<UserId> {
-        val sRoleId = Snowflake(roleId)
-        val limit = 100
-
-        val members = mutableListOf<DiscordGuildMember>()
-        do {
-            val page = getGuildMembers(limit, members.lastOrNull())
-            members.addAll(page)
-            page.forEach { usernameCache.cacheFrom(it) }
-        } while (page.size == limit)
-
-        return members
-            .filter { sRoleId in it.roles }
-            .mapNotNull { it.user.value?.id?.value}
-            .toSet()
+    suspend fun getUsersInGuild(): List<User> {
+        return getGuildMembers().map { it.toUser() }
     }
 
     suspend fun getUser(userId: UserId): User {
-        val discordUser = getGuildMember(userId)
-        return User(
-            discordUser.user.value!!.id.value,
-            discordUser.roles.map { it.value }.toSet(),
-            discordUser.joinedAt.toJavaInstant()
-        )
+        val discordMember = getGuildMember(userId)
+        return discordMember.toUser()
     }
 
     suspend fun getUserRoles(userId: UserId): Set<RoleId> {
@@ -78,6 +37,17 @@ class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
         val roleIdsToRemove = currentRoleIds.intersect(roleIds.toSet())
         deleteRolesFromGuildMember(userId, roleIdsToRemove)
         return roleIdsToRemove
+    }
+
+    private suspend fun getGuildMembers(limit: Int = 100): List<DiscordGuildMember> {
+        val members = mutableListOf<DiscordGuildMember>()
+        do {
+            val page = getGuildMembers(limit, members.lastOrNull())
+            members.addAll(page)
+            page.forEach { usernameCache.cacheFrom(it) }
+        } while (page.size == limit)
+
+        return members
     }
 
     private suspend fun getGuildMember(userId: UserId) = restClient.guild.getGuildMember(sGuildId, Snowflake(userId))
@@ -111,4 +81,10 @@ class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
             deleteRoleFromGuildMember(userId, it)
         }
     }
+
+    private fun DiscordGuildMember.toUser() = User(
+        user.value!!.id.value,
+        roles.map { it.value }.toSet(),
+        joinedAt.toJavaInstant()
+    )
 }

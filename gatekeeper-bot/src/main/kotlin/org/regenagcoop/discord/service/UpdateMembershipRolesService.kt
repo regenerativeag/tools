@@ -69,26 +69,11 @@ class UpdateMembershipRolesService(
         // 1. fetch activity history for all users from DB
         val activityHistory = database.getActivityHistory()
 
-        // 2. fetch all users in all membership roles in parallel (excluding those without membership roles)
-        val currentUserIdsByRoleId = activeMemberConfig.roleConfigs.filter { it.roleId != null }.parallelMapIO { roleConfig ->
-            roleConfig.roleId to usersDiscordClient.getUsersWithRole(roleConfig.roleId!!)
-        }.toMap()
+        // 2. fetch all relevant users
+        val allRelevantUsers = usersDiscordClient.getUsersInGuild()
+            .filter { !isExcludedUserId(it.userId) }
 
-        val allRelevantUserIds = (
-            activityHistory.postHistory.keys +
-            activityHistory.reactionHistory.keys +
-            activityHistory.roleChangeHistory.keys +
-            currentUserIdsByRoleId.values.flatten()
-        ).filter {
-            !isExcludedUserId(it)
-        }.let {
-            usersDiscordClient.filterToUsersCurrentlyInGuild(it.toSet())
-        }
-
-        // TODO #26: optimization - if we cache the joinDate, we won't have to fetch every single user twice
-        val allRelevantUsers = allRelevantUserIds.parallelMapIO(usersDiscordClient::getUser)
-
-        // 4. Call roleDeterminationService for current relevant users
+        // 4. Call roleDeterminationService for relevant users
         val userToQualificationPairs = allRelevantUsers.map { user ->
             val userId = user.userId
             val userActivityHistory = UserActivityHistory(
@@ -106,7 +91,7 @@ class UpdateMembershipRolesService(
             it.value.map { (user, _) -> user }
         }
 
-        // 6. Add role to each group of users in parallel, and remove role from those that were determined to have no role.
+        // 6. Update role for each group of users in parallel
         usersByQualification.entries.parallelForEachIO { (qualification, users) ->
             val usernames = users.map { usernameCache.lookup(it.userId) }
 
