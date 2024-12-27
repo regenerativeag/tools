@@ -99,10 +99,6 @@ class ActiveMemberDiscordBot(
 
     /** If this message results in the user meeting an active-member threshold, adjust the user's roles. */
     private suspend fun onMessage(message: Message) {
-        if (message.userId in activeMemberConfig.excludedUserIds) {
-            return
-        }
-
         canUpdateRolesOrDbMutex.withLock {
             val isFirstPostOfDay = database.addPost(message.userId, message.utcDate)
             val triggeringAction = TriggeringAction.PostAdded(isFirstPostOfDay)
@@ -112,10 +108,6 @@ class ActiveMemberDiscordBot(
 
     /** Update the reaction history in the database & persist reaction in persistence channel */
     private suspend fun onReaction(reaction: Reaction) {
-        if (reaction.userId in activeMemberConfig.excludedUserIds) {
-            return
-        }
-
         canUpdateRolesOrDbMutex.withLock {
             database.addReaction(reaction.userId, reaction.utcDate)
             val triggeringAction = TriggeringAction.ReactionAdded(0uL, "") // TODO #26: add messageId & emoji to Reaction data class & pass here.

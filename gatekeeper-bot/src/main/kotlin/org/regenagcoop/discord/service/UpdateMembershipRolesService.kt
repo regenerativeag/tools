@@ -37,7 +37,8 @@ class UpdateMembershipRolesService(
         today: LocalDate,
         triggeringAction: TriggeringAction
     ) {
-        val canActionCauseRoleChange = when (triggeringAction) {
+
+        val canActionCauseRoleChange = !isExcludedUserId(userId) && when (triggeringAction) {
             is TriggeringAction.PostAdded -> triggeringAction.isFirstPostOfDay
             is TriggeringAction.ReactionAdded -> {
                 val messageIdEmojiPair = triggeringAction.messageId to triggeringAction.emoji
@@ -68,12 +69,16 @@ class UpdateMembershipRolesService(
             roleConfig.roleId to usersDiscordClient.getUsersWithRole(roleConfig.roleId!!)
         }.toMap()
 
-        val allRelevantUserIds = usersDiscordClient.filterToUsersCurrentlyInGuild(
+        val allRelevantUserIds = (
             activityHistory.postHistory.keys +
-                activityHistory.reactionHistory.keys +
-                activityHistory.roleChangeHistory.keys +
-                currentUserIdsByRoleId.values.flatten().toSet()
-        )
+            activityHistory.reactionHistory.keys +
+            activityHistory.roleChangeHistory.keys +
+            currentUserIdsByRoleId.values.flatten()
+        ).filter {
+            !isExcludedUserId(it)
+        }.let {
+            usersDiscordClient.filterToUsersCurrentlyInGuild(it.toSet())
+        }
 
         // TODO #26: optimization - if we cache the joinDate, we won't have to fetch every single user twice
         val allRelevantUsers = allRelevantUserIds.parallelMapIO(usersDiscordClient::getUser)
@@ -113,4 +118,6 @@ class UpdateMembershipRolesService(
             else -> listOf()
         }
     }
+
+    private fun isExcludedUserId(userId: UserId) = userId in activeMemberConfig.excludedUserIds
 }
