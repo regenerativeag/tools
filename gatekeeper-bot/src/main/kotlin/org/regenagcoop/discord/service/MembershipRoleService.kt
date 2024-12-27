@@ -106,7 +106,7 @@ class MembershipRoleService(
         val newRoleName = newRoleId?.let { roleNameCache.lookupOrNoRole(it, activeMemberConfig) }
         val downgradeConfig = activeMemberConfig.downgradeMessageConfig
         val previousRoleName = concatRolesToString(previousRoleIds)
-        val downgradeMessage = downgradeConfig.createDowngradeMessage(username, previousRoleName, newRoleName)
+        val downgradeMessage = downgradeConfig.createDowngradeMessage(activeMemberConfig, username, previousRoleName, newRoleName)
         discord.rooms.postMessage(downgradeMessage, downgradeConfig.channel)
     }
 
