@@ -123,7 +123,7 @@ class MembershipRoleServiceTest {
         setupMocks(case)
 
         val roleConfig = activeMemberConfig.roleConfigs.single { it.roleId == case.newRoleId }
-        membershipRoleService.addOrRemoveMembershipRoleFromUsers(Qualification(roleConfig, null), setOf(case.userId))
+        membershipRoleService.addOrRemoveMembershipRoleFromUsers(Qualification(roleConfig, roleConfig.paths.first()), setOf(case.userId))
         val alreadyHasRole = case.newRoleId == null && case.currentRoleIds.isEmpty() || case.newRoleId in case.currentRoleIds
         if (alreadyHasRole) {
             assertDeletedRoleIdsFromUser(case.userId, listOf())

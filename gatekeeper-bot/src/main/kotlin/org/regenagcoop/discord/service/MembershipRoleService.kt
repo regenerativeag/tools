@@ -91,7 +91,7 @@ class MembershipRoleService(
         // Post upgrade and downgrade messages to appropriate room
         val isUpgrade = newRoleLevel > previousRoleLevel
         if (isUpgrade) {
-            val welcomeConfig = qualification.path?.welcomeMessageConfig
+            val welcomeConfig = qualification.path.welcomeMessageConfig
             if (welcomeConfig != null) {
                 val welcomeMessage = welcomeConfig.createWelcomeMessage(userId)
                 discord.rooms.postMessage(welcomeMessage, welcomeConfig.channel, listOf(userId))
@@ -114,7 +114,7 @@ class MembershipRoleService(
      * It's possible multiple roles are being removed from the user if there was some manual intervention... or a bug
      * ...If so, join them together into one string
      */
-    private suspend fun concatRolesToString(roleIds: Collection<RoleId>): String? {
+    suspend fun concatRolesToString(roleIds: Collection<RoleId>): String? {
         return if (roleIds.isEmpty()) {
             null
         } else {

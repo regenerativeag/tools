@@ -34,7 +34,7 @@ class MembershipRoleDeterminationService(
         user: User,
         userActivity: UserActivityHistory,
         triggeringAction: TriggeringAction?,
-    ): Qualification {
+    ): Qualification? {
         // check roles in reverse order, so that user is granted the highest role they are qualified for
         for (roleConfig in activeMemberConfig.roleConfigs.reversed()) {
             val qualifyingPath = findQualifyingPath(roleConfig, today, user, userActivity, triggeringAction)
@@ -44,7 +44,7 @@ class MembershipRoleDeterminationService(
             }
         }
 
-        return Qualification(noRoleRoleConfig, null)
+        return null
     }
 
     private fun findQualifyingPath(
