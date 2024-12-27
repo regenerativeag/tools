@@ -93,17 +93,17 @@ class UpdateMembershipRolesService(
 
         // 6. Update role for each group of users in parallel
         usersByQualification.entries.parallelForEachIO { (qualification, users) ->
-            val usernames = users.map { usernameCache.lookup(it.userId) }
+            val userTriples = users.map { user ->
+                val username = usernameCache.lookup(user.userId)
+                val oldRoleName = membershipRoleService.concatRolesToString(user.membershipRoles)
+                Triple(username, oldRoleName, user.userId)
+            }
 
             if (qualification == null) {
-                logger.debug { "Users who qualified for no role changes: $usernames"}
+                logger.debug { "Users who qualified for no role changes (Username, Current Role, UserId): $userTriples"}
             } else {
                 val newRoleName = roleNameCache.lookupOrNoRole(qualification.roleConfig.roleId, activeMemberConfig)
-                val oldRoleNamesPerUser = users.map { membershipRoleService.concatRolesToString(it.membershipRoles) }
-                val userTriples = users.mapIndexed { idx, user ->
-                    Triple(user.userId, usernames[idx], oldRoleNamesPerUser[idx])
-                }
-                logger.debug { "Updating users' roles. New Role: $newRoleName. (UserId, Username, OldRole): $userTriples" }
+                logger.debug { "Updating users' roles. New Role: $newRoleName. Users (Username, Old Role, UserId): $userTriples" }
                 val userIds = users.map { it.userId }.toSet()
                 membershipRoleService.addOrRemoveMembershipRoleFromUsers(qualification, userIds)
             }
