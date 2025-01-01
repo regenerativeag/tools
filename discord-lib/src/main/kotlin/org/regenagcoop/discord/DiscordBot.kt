@@ -40,9 +40,14 @@ open class DiscordBot(
         if (onReaction != null) {
             gateway.events.filterIsInstance<MessageReactionAdd>().onEach { reactionEvent ->
                 val timestamp = Clock.System.now() // discord doesn't provide timestamps for reactions, so we are approximating it by grabbing the timestamp that we receive the event
-                val reaction = Reaction(reactionEvent.reaction.userId.value, timestamp)
+                val reaction = Reaction(
+                    reactionEvent.reaction.userId.value,
+                    timestamp,
+                    reactionEvent.reaction.messageId.value,
+                    reactionEvent.reaction.emoji.name ?: ""
+                )
                 val username = usernameCache.lookup(reaction.userId)
-                logger.debug { "Reaction received from $username on ${reaction.utcDate}"}
+                logger.debug { "Reaction received from $username on ${reaction.utcDate}: $reaction"}
                 onReaction.invoke(reaction)
             }.launchIn(gateway)
         }

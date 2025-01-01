@@ -110,7 +110,7 @@ class ActiveMemberDiscordBot(
     private suspend fun onReaction(reaction: Reaction) {
         canUpdateRolesOrDbMutex.withLock {
             database.addReaction(reaction.userId, reaction.utcDate)
-            val triggeringAction = TriggeringAction.ReactionAdded(0uL, "") // TODO #26: add messageId & emoji to Reaction data class & pass here.
+            val triggeringAction = TriggeringAction.ReactionAdded(reaction.messageId, reaction.emoji)
             updateMembershipRolesService.updateMembershipRoleForUser(reaction.userId, reaction.utcDate, triggeringAction)
         }
     }
