@@ -4,6 +4,8 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Clock
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.ValueSource
+import org.regenagcoop.ChannelIds
 import org.regenagcoop.UserIds
 import org.regenagcoop.activeMemberConfig
 import org.regenagcoop.discord.ActiveMemberDiscordBot
@@ -109,9 +111,35 @@ class PersistReactionServiceTest {
 
         // then
         when (dayToPostTo) {
-            Day.TODAY, Day.YESTERDAY, Day.TOMORROW -> assertTrue(result.isSuccess)
-            Day.YESTERDAY_MINUS_ONE, Day.TOMORROW_PLUS_ONE -> assertTrue(result.isFailure)
+            Day.TODAY, Day.YESTERDAY, Day.TOMORROW, Day.TOMORROW_PLUS_ONE -> assertTrue(result.isSuccess)
+            Day.YESTERDAY_MINUS_ONE -> assertTrue(result.isFailure)
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = [0, 1, 2, 3, 4, 5, 100])
+    fun `posting a message to a future date results in that day being today`(offsetDays: Long) = runBlocking {
+        // given
+        val daysDefined = DaysDefined.entries.random()
+        val messagesInHistoryChannel = generateMessagesFor(daysDefined)
+        val service = PersistReactionService(discordMocker.mock, activeMemberConfig, today, messagesInHistoryChannel)
+        val userId = 52uL
+        val dayToPostTo = today.plusDays(offsetDays)
+
+        // when
+        service.persistReaction(dayToPostTo, userId)
+
+        // then
+        val expectedMessage = if (
+            offsetDays == 0L
+            && daysDefined in setOf(DaysDefined.TODAY_ONLY, DaysDefined.YESTERDAY_AND_TODAY)
+        ) {
+            CapturedMessage("Users who reacted on $today: 9, 10, 52", ChannelIds.persistenceLog, CapturedMessage.Type.EDIT)
+        } else {
+            CapturedMessage("Users who reacted on $dayToPostTo: 52", ChannelIds.persistenceLog)
+
+        }
+        discordMocker.assertCapturedMessagesEqual(expectedMessage)
     }
 
 

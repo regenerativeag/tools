@@ -25,7 +25,7 @@ class PersistReactionService(
         mutex.withLock {
             val yesterday = today.minusDays(1)
             val tomorrow = today.plusDays(1)
-            when(date) {
+            when (date) {
                 today -> {
                     todayMessage = postOrEditReactionHistoryMessage(date, userId, todayMessage)
                 }
@@ -35,10 +35,19 @@ class PersistReactionService(
                 tomorrow -> {
                     logger.debug { "Received reaction for tomorrow. Switching today ($today) to yesterday ($yesterday) and creating a new today ($tomorrow)." }
                     yesterdayMessage = todayMessage
-                    today = today.plusDays(1)
+                    today = tomorrow
                     todayMessage = postNewReactionHistoryMessage(date, userId)
                 }
-                else -> throw IllegalArgumentException("Received reaction for userId=$userId, however reactionDate=$date was neither today ($today), yesterday ($yesterday), nor tomorrow ($tomorrow).")
+                else -> {
+                    if (date > tomorrow) {
+                        logger.warn { "Received reaction for $date. Did no users react yesterday? ... Making today=$date" }
+                        today = date
+                        todayMessage = postNewReactionHistoryMessage(date, userId)
+                        yesterdayMessage = null
+                    } else {
+                        throw IllegalArgumentException("Received reaction for userId=$userId, however reactionDate=$date was before yesterday ($yesterday).")
+                    }
+                }
             }
         }
     }
