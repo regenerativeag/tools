@@ -130,10 +130,12 @@ roleConfigs:
           channel: 1223262623194153111 # community
           template: >-
             Welcome to our community of practice, USER_MENTION! :farmer:
-            
+            \n
             You are now a Member :relieved: You can choose your name-tag color in <#1228353194493476894>.
-            
-            When you have a few minutes of free time, please take a brief glance over our [Community Guide](https://regenagcoop.org/community-guide/). Thank you for connecting with us!
+            \n
+            When you have a few minutes of free time, please take a brief glance over our [Community Guide](https://regenagcoop.org/community-guide/).
+            \n
+            Thank you for connecting with us!
       # The user is an Active Member, and has made no posts or reactions in the last 30 days
       - daysToConsider: 30
         rule:
@@ -154,7 +156,7 @@ roleConfigs:
               messageId: 1322322546296885341 # message in quiet garden
         welcomeMessageConfig:
           channel: 1223262623194153111 # community
-          template: "Welcome back, USER_MENTION! :relaxed:"
+          template: "Welcome back, USER_MENTION :relaxed:"
 
   # Active Member
   - roleId: 1223026651340996698
