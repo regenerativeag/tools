@@ -112,7 +112,7 @@ roleConfigs:
               atLeast: 1
         welcomeMessageConfig:
           channel: 1162017937796911209 # connect
-          template: "A warm hello to our newest guest, USER_MENTION :relaxed: Please check out our [Community Guide](https://regenagcoop.org/community-guide/) when you have a moment."
+          template: "A warm hello to our newest guest, USER_MENTION :relaxed:"
 
   # Member
   - roleId: 1322322020284760196
@@ -128,7 +128,12 @@ roleConfigs:
               atLeast: 4
         welcomeMessageConfig:
           channel: 1223262623194153111 # community
-          template: "Welcome to our community, USER_MENTION! :farmer:"
+          template: >-
+            Welcome to our community of practice, USER_MENTION! :farmer:
+            
+            You are now a Member :relieved: You can choose your name-tag color in <#1228353194493476894>.
+            
+            When you have a few minutes of free time, please take a brief glance over our [Community Guide](https://regenagcoop.org/community-guide/). Thank you for connecting with us!
       # The user is an Active Member, and has made no posts or reactions in the last 30 days
       - daysToConsider: 30
         rule:
@@ -149,7 +154,7 @@ roleConfigs:
               messageId: 1322322546296885341 # message in quiet garden
         welcomeMessageConfig:
           channel: 1223262623194153111 # community
-          template: "Welcome back, USER_MENTION! :slight_smile:"
+          template: "Welcome back, USER_MENTION! :relaxed:"
 
   # Active Member
   - roleId: 1223026651340996698
@@ -174,7 +179,7 @@ roleConfigs:
                 roleId: 1223026651340996698 # Active Member
         welcomeMessageConfig:
           channel: 1223262623194153111 # community
-          template: "Thanks for your participation, USER_MENTION! You are now an active member :partying_face:"
+          template: "USER_MENTION has become an active member :partying_face: Thank you being so involved in our community :green_heart:"
       # Grace period: The user was an Active Member in the last 7 days, and has made a post in the last 7 days
       - daysToConsider: 7
         rule:
