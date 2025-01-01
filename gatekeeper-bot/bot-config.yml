@@ -95,7 +95,7 @@ roleConfigs:
             - type: has_role
               roleId: 1322321679006961664 # Inactive
             - type: reacted
-              emoji: ":thumbsup:"
+              emoji: "👍"
               messageId: 1322322546296885341 # message in quiet garden
 
   # Guest
