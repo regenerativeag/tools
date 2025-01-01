@@ -111,6 +111,15 @@ class MembershipRoleDeterminationService(
                     val reactionCount = userActivity.reactionHistory.count { it >= earliestDayToConsider }
                     return postCount == 0 && reactionCount == 0
                 }
+                is Rule.Or -> {
+                    rule.rules.forEach { subRule ->
+                        val result = evaluateRule(subRule)
+                        if (result) {
+                            return true
+                        }
+                    }
+                    return false
+                }
                 is Rule.PreviouslyHadRole -> {
                     val qualifyingRoleChange = userActivity.roleChanges.lastOrNull {
                         it.fromRoleId == rule.roleId && it.timestamp >= earliestTimestampToConsider

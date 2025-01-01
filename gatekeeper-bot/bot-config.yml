@@ -154,17 +154,24 @@ roleConfigs:
   # Active Member
   - roleId: 1223026651340996698
     paths:
-      # The user is a Member, and has posted on at least 8 days and 4 weeks in the last 60 days
+      # The user is a Member or an Active Member, and has posted on at least 8 days and 4 weeks in the last 60 days
       - daysToConsider: 60
         rule:
           type: and
           rules:
-            - type: has_role
-              roleId: 1322322020284760196 # Member
             - type: post_days
               atLeast: 8
             - type: post_weeks
               atLeast: 4
+            - type: or
+              rules:
+              - type: has_role
+                roleId: 1322322020284760196 # Member
+              # Even if the user hasn't posted in the last 30 days, they should keep the Active Member role
+              # if they still meet the "8 days and 4 weeks" rule. Otherwise, if we downgrade them, they could
+              # be upgraded again on the next daily task.
+              - type: has_role
+                roleId: 1223026651340996698 # Active Member
         welcomeMessageConfig:
           channel: 1223262623194153111 # community
           template: "Thanks for your participation, USER_MENTION! You are now an active member :partying_face:"

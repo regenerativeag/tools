@@ -28,6 +28,12 @@ sealed class Rule {
     @JsonTypeName("no_posts_or_reactions")
     class NoPostsOrReactions: Rule()
 
+    /** True if any of the sub [rules] are true */
+    @JsonTypeName("or")
+    data class Or(
+        val rules: List<Rule>,
+    ): Rule()
+
     /** True if the user had [roleId] in the last [Path.daysToConsider] days */
     @JsonTypeName("previously_had_role")
     data class PreviouslyHadRole(
