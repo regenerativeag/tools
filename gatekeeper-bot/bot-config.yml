@@ -133,12 +133,9 @@ roleConfigs:
           template: >-
             Welcome to our community of practice, USER_MENTION! :farmer:
             
-            
             You are now a Member :relieved: You can choose your name-tag color in <#1228353194493476894>.
             
-            
             When you have a few minutes of free time, please take a brief glance over our [Community Guide](https://regenagcoop.org/community-guide/).
-            
             
             Thank you for connecting with us!
       # The user is an Active Member, and has made no posts or reactions in the last 30 days
