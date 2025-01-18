@@ -132,11 +132,14 @@ roleConfigs:
           channel: 1223262623194153111 # community
           template: >-
             Welcome to our community of practice, USER_MENTION! :farmer:
-            \n
+            
+            
             You are now a Member :relieved: You can choose your name-tag color in <#1228353194493476894>.
-            \n
+            
+            
             When you have a few minutes of free time, please take a brief glance over our [Community Guide](https://regenagcoop.org/community-guide/).
-            \n
+            
+            
             Thank you for connecting with us!
       # The user is an Active Member, and has made no posts or reactions in the last 30 days
       - daysToConsider: 30
@@ -217,20 +220,26 @@ welcomeToGuildMessageConfig:
   channel: 1162019178513956954 # introductions
   template: >-
     Welcome, USER_MENTION! To kick things off, we'd love to hear a little about your interests and experiences in regeneration.
-    \n
+    
+    
     Here are some questions we'd like to connect with you on. These are just suggestions, feel free to introduce yourself in whatever way is comfortable :relieved:
-    \n
+    
+    
     1. **Tell us a bit about your journey into regenerative agriculture.** 
        Where are you located (roughly)? What inspired you to pursue regenerative practices? How long have you been working in this space? 
-    \n
+    
+    
     2. **What does your regenerative operation look like?** 
       We'd love to hear details about your farm, business, or project—its size, focus (e.g., livestock, crops, agroforestry), and any key practices you’re using.
-    \n
+    
+    
     3. **What is the biggest challenge you’re currently facing in your work?** 
        Are there particular obstacles—such as access to markets, managing soil health, or regulatory hurdles—that you'd like support or advice on?
-    \n
+    
+    
     4. **What skills, knowledge, or experiences can you offer to other members?** 
        Maybe you have expertise in composting, marketing local produce, or navigating grants... How would you like to contribute?
-    \n
+    
+    
     5. **What are you most excited to explore with our community?** 
        Are there specific topics or collaborations you’re hoping to engage with? E.g. biodiversity, carbon markets, creating resilient local food systems...
