@@ -20,7 +20,6 @@ open class DiscordBot(
 ): DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
 
-    @OptIn(PrivilegedIntent::class)
     suspend fun login() {
         val gateway = DefaultGateway()
 
@@ -30,7 +29,7 @@ open class DiscordBot(
                 usernameCache.cacheFrom(user)
                 val userId = user.id.value
                 onJoinedGuild.invoke(userId)
-            }
+            }.launchIn(gateway)
         }
 
         if (onMessage != null) {
@@ -63,6 +62,7 @@ open class DiscordBot(
 
         // endlessly listen for events
         gateway.start(discordApiToken) {
+            @OptIn(PrivilegedIntent::class)
             intents += Intent.GuildMembers
         }
     }
