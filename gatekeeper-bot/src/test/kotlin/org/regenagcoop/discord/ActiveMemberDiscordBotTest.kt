@@ -7,7 +7,7 @@ import org.regenagcoop.model.PostHistory
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.config.DowngradeMessageConfig
 import org.regenagcoop.model.config.PersistenceConfig
-import kotlin.test.assertEquals
+import org.regenagcoop.model.config.WelcomeMessageConfig
 
 
 class ActiveMemberDiscordBotTest {
@@ -24,6 +24,7 @@ class ActiveMemberDiscordBotTest {
                     ),
                     DowngradeMessageConfig(0uL, "template"),
                     PersistenceConfig(0uL),
+                    welcomeToGuildMessageConfig = WelcomeMessageConfig(0uL, "template"),
             )
     ) {
         EMPTY(),

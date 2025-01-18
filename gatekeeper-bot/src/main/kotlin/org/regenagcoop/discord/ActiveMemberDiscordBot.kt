@@ -11,6 +11,7 @@ import org.regenagcoop.coroutine.TopLevelJob.Companion.createTopLevelJob
 import org.regenagcoop.model.config.ActiveMemberConfig
 import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.Reaction
+import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.discord.service.*
 import org.regenagcoop.model.TriggeringAction
 import java.time.*
@@ -33,6 +34,7 @@ class ActiveMemberDiscordBot(
     private val bot = DiscordBot(
         discord,
         discordApiToken,
+        onJoinedGuild = ::onJoinedGuild,
         onMessage = ::onMessage,
         onReaction = ::onReaction
     )
@@ -113,6 +115,14 @@ class ActiveMemberDiscordBot(
             val triggeringAction = TriggeringAction.ReactionAdded(reaction.messageId, reaction.emoji)
             updateMembershipRolesService.updateMembershipRoleForUser(reaction.userId, reaction.utcDate, triggeringAction)
         }
+    }
+
+    private suspend fun onJoinedGuild(userId: UserId) {
+        val username = discord.usernameCache.lookup(userId)
+        logger.debug { "$username ($userId) joined the guild!" }
+        val welcomeConfig = activeMemberConfig.welcomeToGuildMessageConfig
+        val welcomeMessage = welcomeConfig.createWelcomeMessage(userId)
+        discord.rooms.postMessage(welcomeMessage, welcomeConfig.channel, listOf(userId))
     }
 
     /** Millis until 12:05am UTC */

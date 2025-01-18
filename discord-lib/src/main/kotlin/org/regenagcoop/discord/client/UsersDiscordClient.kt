@@ -3,13 +3,13 @@ package org.regenagcoop.discord.client
 import dev.kord.common.entity.DiscordGuildMember
 import dev.kord.common.entity.Snowflake
 import dev.kord.rest.route.Position
-import kotlinx.datetime.toJavaInstant
 import mu.KotlinLogging
 import org.regenagcoop.coroutine.parallelForEachIO
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.RoleId
 import org.regenagcoop.discord.model.User
 import org.regenagcoop.discord.model.UserId
+import org.regenagcoop.discord.toUser
 
 class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
@@ -77,10 +77,4 @@ class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
             deleteRoleFromGuildMember(userId, it)
         }
     }
-
-    private fun DiscordGuildMember.toUser() = User(
-        user.value!!.id.value,
-        roles.map { it.value }.toSet(),
-        joinedAt.toJavaInstant()
-    )
 }

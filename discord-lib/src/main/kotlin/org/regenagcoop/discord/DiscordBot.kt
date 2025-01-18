@@ -1,9 +1,6 @@
 package org.regenagcoop.discord
 
-import dev.kord.gateway.DefaultGateway
-import dev.kord.gateway.MessageCreate
-import dev.kord.gateway.MessageReactionAdd
-import dev.kord.gateway.start
+import dev.kord.gateway.*
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -12,10 +9,12 @@ import mu.KotlinLogging
 import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.Reaction
+import org.regenagcoop.discord.model.UserId
 
 open class DiscordBot(
     discord: Discord,
     private val discordApiToken: String,
+    private val onJoinedGuild: (suspend (UserId) -> Unit)? = null,
     private val onMessage: (suspend (Message) -> Unit)? = null,
     private val onReaction: (suspend (Reaction) -> Unit)? = null,
 ): DiscordClient(discord) {
@@ -23,6 +22,15 @@ open class DiscordBot(
 
     suspend fun login() {
         val gateway = DefaultGateway()
+
+        if (onJoinedGuild != null) {
+            gateway.events.filterIsInstance<GuildMemberAdd>().onEach { guildMemberAdd ->
+                val user = guildMemberAdd.member.user.value!!
+                usernameCache.cacheFrom(user)
+                val userId = user.id.value
+                onJoinedGuild.invoke(userId)
+            }
+        }
 
         if (onMessage != null) {
             gateway.events.filterIsInstance<MessageCreate>().onEach { messageCreate ->
