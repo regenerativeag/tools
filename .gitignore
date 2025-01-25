@@ -1,6 +1,8 @@
 .vm*
 .env
 
+__pycache__
+
 # Ignore Gradle project-specific cache directory
 .gradle
 

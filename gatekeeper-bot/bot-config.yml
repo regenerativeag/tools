@@ -1,5 +1,5 @@
 ########################################################################################################################
-# This is the real configuration file used for the regenerative agriculture discord server.
+# This is the real configuration file used for the Regenerative Ag Coop discord server.
 #
 # You can copy this config and edit it to create your own configuration file for your server.
 #
@@ -9,7 +9,7 @@
 
 
 # Your discord server id
-guildId: 1162017936656044042 # Regenerative Agriculture
+guildId: 1162017936656044042 # Regenerative Ag Coop
 
 
 
