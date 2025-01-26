@@ -87,13 +87,17 @@ class MembershipRoleService(
         }
         val newRoleLevel = roleLevelByRoleId[newRoleId]!!
 
-        // Post upgrade and downgrade messages to appropriate room
+        // Post upgrade, downgrade, and direct messages to appropriate rooms
         val isUpgrade = newRoleLevel > previousRoleLevel
         if (isUpgrade) {
             val welcomeConfig = qualification.path.welcomeMessageConfig
             if (welcomeConfig != null) {
-                val welcomeMessage = welcomeConfig.createWelcomeMessage(userId)
-                discord.rooms.postMessage(welcomeMessage, welcomeConfig.channel, listOf(userId))
+                val channelWelcomeMessage = welcomeConfig.createWelcomeMessage(userId)
+                discord.rooms.postMessage(channelWelcomeMessage, welcomeConfig.channel, listOf(userId))
+                val directWelcomeMessage = welcomeConfig.directMessageConfig?.message
+                if (directWelcomeMessage != null) {
+                    discord.users.sendDirectMessageToUser(userId, directWelcomeMessage)
+                }
             }
         } else {
             postDowngradeMessage(userId, previousRoleIds, newRoleId)

@@ -2,6 +2,7 @@ package org.regenagcoop.discord.client
 
 import dev.kord.common.entity.DiscordGuildMember
 import dev.kord.common.entity.Snowflake
+import dev.kord.rest.json.request.DMCreateRequest
 import dev.kord.rest.route.Position
 import mu.KotlinLogging
 import org.regenagcoop.coroutine.parallelForEachIO
@@ -33,6 +34,19 @@ class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
         val roleIdsToRemove = currentRoleIds.intersect(roleIds.toSet())
         deleteRolesFromGuildMember(userId, roleIdsToRemove)
         return roleIdsToRemove
+    }
+
+    suspend fun sendDirectMessageToUser(userId: UserId, message: String) {
+        if (dryRun) {
+            val username = usernameCache.lookup(userId)
+            logger.debug { "Would have sent a DM directly to $userId ($username):\n$message" }
+        } else {
+            val sUserId = Snowflake(userId)
+            val dmChannel = restClient.user.createDM(DMCreateRequest(sUserId))
+            restClient.channel.createMessage(dmChannel.id) {
+                this.content = message
+            }
+        }
     }
 
     private suspend fun getGuildMembers(limit: Int = 100): List<DiscordGuildMember> {

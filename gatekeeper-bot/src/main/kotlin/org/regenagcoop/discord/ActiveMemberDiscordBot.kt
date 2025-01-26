@@ -121,8 +121,12 @@ class ActiveMemberDiscordBot(
         val username = discord.usernameCache.lookup(userId)
         logger.debug { "$username ($userId) joined the guild!" }
         val welcomeConfig = activeMemberConfig.welcomeToGuildMessageConfig
-        val welcomeMessage = welcomeConfig.createWelcomeMessage(userId)
-        discord.rooms.postMessage(welcomeMessage, welcomeConfig.channel, listOf(userId))
+        val channelWelcomeMessage = welcomeConfig.createWelcomeMessage(userId)
+        discord.rooms.postMessage(channelWelcomeMessage, welcomeConfig.channel, listOf(userId))
+        val directWelcomeMessage = welcomeConfig.directMessageConfig?.message
+        if (directWelcomeMessage != null) {
+            discord.users.sendDirectMessageToUser(userId, directWelcomeMessage)
+        }
     }
 
     /** Millis until 12:05am UTC */

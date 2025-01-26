@@ -7,6 +7,7 @@ data class WelcomeMessageConfig(
     val channel: ChannelId,
     val template: String,
     val userMentionPlaceholder: String = "USER_MENTION",
+    val directMessageConfig: DirectMessageConfig? = null,
 ) {
     fun createWelcomeMessage(userId: UserId): String {
         return template
