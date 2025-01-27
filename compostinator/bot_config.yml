@@ -3,6 +3,6 @@ guild_id: 1162017936656044042 # Regenerative Ag Coop
 # A config entry per channel that should have disappearing messages enabled
 channel_config_by_channel_id: 
   # test channel
-  0: #TODO
+  1333528605359214663:
     delay_unit: SECONDS
     delay_count: 5
