@@ -29,10 +29,14 @@ class Compostinator:
         self._discord_client.run(self._discord_api_token)
 
     async def _on_ready(self):
+        self._compostinator_user_id = self._discord_client.user.id
         for channel_id in self._config["channel_config_by_channel_id"]:
             discord_messages_in_channel = await self._fetch_discord_messages_in_channel(channel_id)
-            messages_in_channel = [self._convert_discord_message_to_message(discord_message) for discord_message in discord_messages_in_channel]
+            messages_in_channel = [self._convert_discord_message_to_message(discord_message) for discord_message in discord_messages_in_channel if discord_message.author.id != self._compostinator_user_id]
             self._messages_by_channel_id[channel_id].extend(messages_in_channel)
+            enable_message_posted = any(discord_message.author.id == self._compostinator_user_id for discord_message in discord_messages_in_channel)
+            if not enable_message_posted:
+                await self._post_enable_message(channel_id)
         self._loaded = True
         self._process_queue()
         asyncio.create_task(self._schedule_next_delete())
@@ -88,9 +92,9 @@ class Compostinator:
                     if message.thread_id is not None:
                         raise Exception("deletion not handled yet in threads")
                     await self._discord_client.http.delete_message(message.channel_id, message.id)
+                    print(f"Deleted {message.id} from {message.channel_id}")
     
         asyncio.create_task(self._schedule_next_delete())
-
 
     def _setup_discord(self):
         intents = discord.Intents.default()
@@ -105,6 +109,9 @@ class Compostinator:
             await self._on_message(message)
 
     def _convert_discord_message_to_message(self, discord_message):
+        if discord_message.author.id == self._compostinator_user_id:
+            return None
+
         if discord_message.channel.type == discord.ChannelType.text:
             channel_id = discord_message.channel.id
         else:
@@ -152,3 +159,23 @@ class Compostinator:
             discord_messages.append(discord_message)
         print(f"fetched {len(discord_messages)} messages from {channel_id} ({channel.name})")
         return discord_messages
+
+    async def _post_enable_message(self, channel_id):
+        enable_config = self._config["enable_config"]
+        channel_config = self._config["channel_config_by_channel_id"][channel_id]
+        
+        delay_unit = channel_config["delay_unit"]
+        delay_count = channel_config["delay_count"]
+        unit_config = enable_config["time_period_config"]["unit_config"][delay_unit]
+
+        time_period_template = enable_config["time_period_config"]["template"]
+        time_period_string = time_period_template \
+            .replace("COUNT", str(delay_count)) \
+            .replace("UNIT", unit_config["singular"] if delay_count == 1 else unit_config["plural"])
+        
+        message = enable_config["template"].replace("TIME_PERIOD", time_period_string)
+        channel = self._discord_client.get_channel(channel_id)
+        if self._dry_run:
+            print(f"DRY RUN: would have posted \"{message}\" in {channel_id} ({channel.name})")
+        else:
+            await channel.send(message)
