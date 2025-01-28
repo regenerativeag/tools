@@ -6,6 +6,10 @@ channel_config_by_channel_id:
   1333528605359214663:
     delay_unit: SECONDS
     delay_count: 5
+  # connect
+  1162017937796911209:
+    delay_unit: DAYS
+    delay_count: 7
 
 enable_config:
   template: "Disappearing messages are enabled. Messages will be deleted after TIME_PERIOD."

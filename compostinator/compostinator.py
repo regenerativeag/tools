@@ -155,10 +155,17 @@ class Compostinator:
     async def _fetch_discord_messages_in_channel(self, channel_id):
         channel = self._discord_client.get_channel(channel_id)
         discord_messages = []
+        last_timestamp = None
         async for discord_message in channel.history(limit=None):
             discord_messages.append(discord_message)
+            timestamp = discord_message.created_at.timestamp()
+            if last_timestamp != None:
+                current_message_is_older = timestamp <= last_timestamp
+                if not current_message_is_older:
+                    raise Exception("loaded messages out of order")
+            last_timestamp = timestamp
         print(f"fetched {len(discord_messages)} messages from {channel_id} ({channel.name})")
-        return discord_messages
+        return reversed(discord_messages)
 
     async def _post_enable_message(self, channel_id):
         enable_config = self._config["enable_config"]
