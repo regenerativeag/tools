@@ -165,7 +165,7 @@ class Compostinator:
                     raise Exception("loaded messages out of order")
             last_timestamp = timestamp
         print(f"fetched {len(discord_messages)} messages from {channel_id} ({channel.name})")
-        return reversed(discord_messages)
+        return list(reversed(discord_messages))
 
     async def _post_enable_message(self, channel_id):
         enable_config = self._config["enable_config"]
