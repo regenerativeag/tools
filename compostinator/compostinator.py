@@ -70,7 +70,7 @@ class Compostinator:
                 earliest_delete_timestamp = timestamp
         if earliest_delete_timestamp is None:
             await asyncio.sleep(1)
-            await self._schedule_next_delete()
+            asyncio.create_task(self._schedule_next_delete())
         else:
             seconds_until_next_delete = earliest_delete_timestamp - time.time()
             await asyncio.sleep(seconds_until_next_delete + 0.1)
@@ -89,7 +89,7 @@ class Compostinator:
                         raise Exception("deletion not handled yet in threads")
                     await self._discord_client.http.delete_message(message.channel_id, message.id)
     
-        await self._schedule_next_delete()
+        asyncio.create_task(self._schedule_next_delete())
 
 
     def _setup_discord(self):
