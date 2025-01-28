@@ -1,7 +1,7 @@
 guild_id: 1162017936656044042 # Regenerative Ag Coop
 
 # A config entry per channel that should have disappearing messages enabled
-channel_config_by_channel_id: 
+channel_config_by_channel_id:
   # test channel
   1333528605359214663:
     delay_unit: SECONDS
@@ -10,6 +10,26 @@ channel_config_by_channel_id:
   1162017937796911209:
     delay_unit: DAYS
     delay_count: 7
+  # community
+  1223262623194153111:
+    delay_unit: DAYS
+    delay_count: 60
+  # off-topic
+  1162041648004468828:
+    delay_unit: DAYS
+    delay_count: 14
+  # voice-room
+  1313533467190886420:
+    delay_unit: DAYS
+    delay_count: 14
+  # chat
+  1333852573920133253:
+    delay_unit: DAYS
+    delay_count: 3
+  # test-results
+  1333853375132995666:
+    delay_unit: DAYS
+    delay_count: 365
 
 enable_config:
   template: "Disappearing messages are enabled. Messages will be deleted after TIME_PERIOD."

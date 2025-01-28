@@ -7,11 +7,14 @@ from model.message import Message
 
 class Compostinator:
     def __init__(self, dry_run, config, discord_api_token):
+        if len(config["channel_config_by_channel_id"]) == 0:
+            raise Exception("At least one channel config must be present in 'channel_config_by_channel_id'")
         self._dry_run = dry_run
         self._config = config
         self._discord_api_token = discord_api_token
         self._loaded = False
         self._discord_message_queue = collections.deque()
+        self._min_sleep_seconds = self._calc_min_sleep_seconds()
 
         self._messages_by_channel_id = {
             channel_id: collections.deque()
@@ -23,8 +26,8 @@ class Compostinator:
 
     def run(self):
         print(f"Starting bot with dry_run={self._dry_run}")
+        print(f"min sleep seconds: {self._min_sleep_seconds}")
         print(self._config)
-        print(self._messages_by_channel_id)
         self._setup_discord()
         self._discord_client.run(self._discord_api_token)
 
@@ -39,7 +42,7 @@ class Compostinator:
                 await self._post_enable_message(channel_id)
         self._loaded = True
         self._process_queue()
-        asyncio.create_task(self._schedule_next_delete())
+        self._schedule_next_delete()
         return True
         
 
@@ -64,37 +67,33 @@ class Compostinator:
             else:
                 self._messages_by_channel_id[message.channel_id].append(message)
 
-    async def _schedule_next_delete(self):
-        earliest_delete_timestamp = None
-        for (channel_id, messages) in self._messages_by_channel_id.items():
-            if len(messages) == 0:
-                continue
-            timestamp = messages[0].delete_timestamp
-            if earliest_delete_timestamp is None or timestamp < earliest_delete_timestamp:
-                earliest_delete_timestamp = timestamp
-        if earliest_delete_timestamp is None:
-            await asyncio.sleep(1)
-            asyncio.create_task(self._schedule_next_delete())
-        else:
-            seconds_until_next_delete = earliest_delete_timestamp - time.time()
-            await asyncio.sleep(seconds_until_next_delete + 0.1)
+    def _schedule_next_delete(self):
+        async def wait_then_delete():
+            await asyncio.sleep(self._min_sleep_seconds)
             await self._do_delete()
+
+        asyncio.create_task(wait_then_delete())
 
     async def _do_delete(self):
         now = time.time()
 
-        for messages in self._messages_by_channel_id.values():
+        for (channel_id, messages) in self._messages_by_channel_id.items():
+            deleted = 0
             while len(messages) > 0 and messages[0].delete_timestamp <= now:
                 message = messages.popleft()
-                if self._dry_run:
-                    print(f"DRY RUN: would have deleted {message.id} from {message.channel_id}")
-                else:
+                if not self._dry_run:
                     if message.thread_id is not None:
                         raise Exception("deletion not handled yet in threads")
                     await self._discord_client.http.delete_message(message.channel_id, message.id)
                     print(f"Deleted {message.id} from {message.channel_id}")
+                deleted += 1
+            if deleted > 0:
+                if self._dry_run:
+                    print(f"DRY RUN: would have deleted {deleted} messages from {channel_id}")
+                else:
+                    print(f"Deleted {deleted} messages from {channel_id}")
     
-        asyncio.create_task(self._schedule_next_delete())
+        self._schedule_next_delete()
 
     def _setup_discord(self):
         intents = discord.Intents.default()
@@ -186,3 +185,11 @@ class Compostinator:
             print(f"DRY RUN: would have posted \"{message}\" in {channel_id} ({channel.name})")
         else:
             await channel.send(message)
+
+    def _calc_min_sleep_seconds(self):
+        min_sleep_time_seconds = None
+        for channel_id in self._config["channel_config_by_channel_id"].keys():
+            delete_offset_seconds = self._get_delete_offset_seconds(channel_id)
+            if min_sleep_time_seconds is None or delete_offset_seconds < min_sleep_time_seconds:
+                min_sleep_time_seconds = delete_offset_seconds
+        return min_sleep_time_seconds
