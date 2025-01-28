@@ -19,11 +19,8 @@ guildId: 1162017936656044042 # Regenerative Agriculture
 #
 #   For example, you may not want to give your bot a role when it posts.
 excludedUserIds:
+  - 1333526166015053844 # Compostinator
   - 1282462880532402206 # Gatekeeper Bot
-  - 1221517195931156530 # Larry (Active Member Bot)
-  - 302050872383242240  # Disboard
-  - 476259371912003597  # Discord.me
-  - 155149108183695360  # Dyno
   - 204255221017214977  # YAGPDB.xyz
 
 
