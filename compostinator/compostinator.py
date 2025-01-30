@@ -66,7 +66,6 @@ class Compostinator:
                 self._messages_by_channel_id[message.channel_id].append(message)
 
     def _schedule_next_delete(self):
-
         async def wait_then_delete():
             delay = self._calc_seconds_to_wait_before_delete()
             await asyncio.sleep(delay)
@@ -79,14 +78,21 @@ class Compostinator:
 
         for (channel_id, messages) in self._messages_by_channel_id.items():
             deleted = 0
+
             while len(messages) > 0 and messages[0].delete_timestamp <= now:
                 message = messages.popleft()
-                if not self._dry_run:
+                if self._dry_run:
+                    deleted += 1
+                else:
                     if message.thread_id is not None:
                         raise Exception("deletion not handled yet in threads")
-                    await self._discord_client.http.delete_message(message.channel_id, message.id)
-                    print(f"Deleted {message.id} from {message.channel_id}")
-                deleted += 1
+                    try:
+                        await self._discord_client.http.delete_message(message.channel_id, message.id)
+                        print(f"Deleted {message.id} from {message.channel_id}")
+                        deleted += 1
+                    except discord.NotFound:
+                        print(f"Message was not found. Was it deleted by someone else? message_id={message.id} channel_id={message.channel_id}")
+
             if deleted > 0:
                 if self._dry_run:
                     print(f"DRY RUN: would have deleted {deleted} messages from {channel_id}")
