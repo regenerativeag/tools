@@ -37,9 +37,7 @@ class Compostinator:
             discord_messages_in_channel = await self._fetch_discord_messages_in_channel(channel_id)
             messages_in_channel = [self._convert_discord_message_to_message(discord_message) for discord_message in discord_messages_in_channel if discord_message.author.id != self._compostinator_user_id]
             self._messages_by_channel_id[channel_id].extend(messages_in_channel)
-            enable_message_posted = any(discord_message.author.id == self._compostinator_user_id for discord_message in discord_messages_in_channel)
-            if not enable_message_posted:
-                await self._post_enable_message(channel_id)
+            await self._post_enable_message(channel_id, discord_messages_in_channel)
         self._loaded = True
         self._process_queue()
         self._schedule_next_delete()
@@ -168,7 +166,16 @@ class Compostinator:
         print(f"fetched {len(discord_messages)} messages from {channel_id} ({channel.name})")
         return list(reversed(discord_messages))
 
-    async def _post_enable_message(self, channel_id):
+    async def _post_enable_message(self, channel_id, discord_messages_in_channel):
+        # Note: we do not require message_content intent for messages we created
+        self_discord_messages = [discord_message for discord_message in discord_messages_in_channel if discord_message.author.id == self._compostinator_user_id]
+        if len(self_discord_messages) == 0:
+            existing_enable_discord_message = None
+        elif len(self_discord_messages) == 1:
+            existing_enable_discord_message = self_discord_messages[0]
+        else:
+            raise Exception("There is more than one message by this bot in channel={channel_id}")
+
         enable_config = self._config["enable_config"]
         channel_config = self._config["channel_config_by_channel_id"][channel_id]
         
@@ -181,12 +188,24 @@ class Compostinator:
             .replace("COUNT", str(delay_count)) \
             .replace("UNIT", unit_config["singular"] if delay_count == 1 else unit_config["plural"])
         
-        message = enable_config["template"].replace("TIME_PERIOD", time_period_string)
+        message_text = enable_config["template"].replace("TIME_PERIOD", time_period_string)
+        if existing_enable_discord_message is not None:
+            existing_text = existing_enable_discord_message.content
+            channel_name = existing_enable_discord_message.channel.name
+            if existing_text == message_text:
+                print(f"The \"enable message\" in {channel_id} ({channel_name}) is correct")
+                return
+            else:
+                if self._dry_run:
+                    existing_id = existing_enable_discord_message.id
+                    print(f"DRY RUN: would have deleted message {existing_id} in {channel_id} ({channel_name}): \"{existing_text}\"")
+                else:
+                    await existing_enable_discord_message.delete()
         channel = self._discord_client.get_channel(channel_id)
         if self._dry_run:
-            print(f"DRY RUN: would have posted \"{message}\" in {channel_id} ({channel.name})")
+            print(f"DRY RUN: would have posted \"{message_text}\" in {channel_id} ({channel.name})")
         else:
-            await channel.send(message)
+            await channel.send(message_text)
 
     def _calc_min_sleep_seconds(self):
         min_sleep_time_seconds = None

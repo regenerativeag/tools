@@ -13,15 +13,15 @@ channel_config_by_channel_id:
   # community
   1223262623194153111:
     delay_unit: DAYS
-    delay_count: 60
+    delay_count: 7
   # off-topic
   1162041648004468828:
     delay_unit: DAYS
-    delay_count: 14
+    delay_count: 7
   # voice-room
   1313533467190886420:
     delay_unit: DAYS
-    delay_count: 14
+    delay_count: 3
   # test-results
   1333853375132995666:
     delay_unit: DAYS
