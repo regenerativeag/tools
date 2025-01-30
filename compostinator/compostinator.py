@@ -68,8 +68,10 @@ class Compostinator:
                 self._messages_by_channel_id[message.channel_id].append(message)
 
     def _schedule_next_delete(self):
+
         async def wait_then_delete():
-            await asyncio.sleep(self._min_sleep_seconds)
+            delay = self._calc_seconds_to_wait_before_delete()
+            await asyncio.sleep(delay)
             await self._do_delete()
 
         asyncio.create_task(wait_then_delete())
@@ -193,3 +195,21 @@ class Compostinator:
             if min_sleep_time_seconds is None or delete_offset_seconds < min_sleep_time_seconds:
                 min_sleep_time_seconds = delete_offset_seconds
         return min_sleep_time_seconds
+
+    def _calc_seconds_to_wait_before_delete(self):
+        earliest_delete_timestamp = None
+        for messages in self._messages_by_channel_id.values():
+            if len(messages) == 0:
+                continue
+            timestamp = messages[0].delete_timestamp
+            if earliest_delete_timestamp is None or timestamp < earliest_delete_timestamp:
+                earliest_delete_timestamp = timestamp
+
+        if earliest_delete_timestamp is None:
+            return self._min_sleep_seconds
+        else:
+            seconds_until_next_message_expires = earliest_delete_timestamp - time.time()
+            return min(
+                self._min_sleep_seconds,
+                max(0, seconds_until_next_message_expires) + 0.1
+            )

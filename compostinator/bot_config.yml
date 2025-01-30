@@ -22,10 +22,6 @@ channel_config_by_channel_id:
   1313533467190886420:
     delay_unit: DAYS
     delay_count: 14
-  # chat
-  1333852573920133253:
-    delay_unit: DAYS
-    delay_count: 3
   # test-results
   1333853375132995666:
     delay_unit: DAYS
