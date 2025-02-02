@@ -65,19 +65,19 @@ roleConfigs:
           type: and
           rules:
             - type: has_role
-              roleId: 1322321901586087976 # Inactive member
+              roleId: 1322321901586087976 # Inactive Member
             - type: no_posts_or_reactions
 
   # Inactive Member
   - roleId: 1322321901586087976
     paths:
-      # The user is a Member, and has made no posts or reactions in the last 60 days
-      - daysToConsider: 60
+      # The user is an Active Member, and has made no posts or reactions in the last 14 days
+      - daysToConsider: 14
         rule:
           type: and
           rules:
             - type: has_role
-              roleId: 1322322020284760196 # Member
+              roleId: 1223026651340996698 # Active Member
             - type: no_posts_or_reactions
 
   # Visitor (no role)
@@ -97,6 +97,7 @@ roleConfigs:
         welcomeMessageConfig:
           channel: 1162019178513956954 # introductions
           template: "Welcome back, USER_MENTION!"
+
   # Guest
   - roleId: 1240396803946582056
     paths:
@@ -111,10 +112,10 @@ roleConfigs:
               atLeast: 1
         welcomeMessageConfig:
           channel: 1162017937796911209 # connect
-          template: "A warm hello to our newest guest, USER_MENTION :relaxed:"
+          template: "A warm hello to our newest Guest, USER_MENTION :relaxed:"
 
-  # Member
-  - roleId: 1322322020284760196
+  # Active Member
+  - roleId: 1223026651340996698
     paths:
       # The user is a Guest, and has made at least 4 posts in the last 60 days
       - daysToConsider: 60
@@ -130,66 +131,22 @@ roleConfigs:
           template: >-
             Welcome to our community of practice, USER_MENTION! :farmer:
             
-            You are now a Member :relieved: You can choose your name-tag color in <#1228353194493476894>.
+            You are now an Active Member :relieved: You can choose your name-tag color in <#1228353194493476894>.
             
             When you have a few minutes of free time, please take a brief glance over our [Community Guide](https://regenagcoop.org/community-guide/).
-            
-            Thank you for connecting with us!
-      # The user is an Active Member, and has made no posts or reactions in the last 30 days
-      - daysToConsider: 30
-        rule:
-          type: and
-          rules:
-            - type: has_role
-              roleId: 1223026651340996698 # Active Member
-            - type: no_posts_or_reactions
       # The user has the "Inactive Member" role, and reacts with a 👍 in #quiet-garden
       - daysToConsider: 0 # no post or reaction history used, only current state
         rule:
           type: and
           rules:
             - type: has_role
-              roleId: 1322321901586087976 # Inactive member
+              roleId: 1322321901586087976 # Inactive Member
             - type: reacted
               emoji: "👍"
               messageId: 1322322546296885341 # message in quiet garden
         welcomeMessageConfig:
           channel: 1223262623194153111 # community
           template: "Welcome back, USER_MENTION :relaxed:"
-
-  # Active Member
-  - roleId: 1223026651340996698
-    paths:
-      # The user is a Member or an Active Member, and has posted on at least 8 days and 4 weeks in the last 60 days
-      - daysToConsider: 60
-        rule:
-          type: and
-          rules:
-            - type: post_days
-              atLeast: 8
-            - type: post_weeks
-              atLeast: 4
-            - type: or
-              rules:
-              - type: has_role
-                roleId: 1322322020284760196 # Member
-              # Even if the user hasn't posted in the last 30 days, they should keep the Active Member role
-              # if they still meet the "8 days and 4 weeks" rule. Otherwise, if we downgrade them, they could
-              # be upgraded again on the next daily task.
-              - type: has_role
-                roleId: 1223026651340996698 # Active Member
-        welcomeMessageConfig:
-          channel: 1223262623194153111 # community
-          template: "USER_MENTION has become an active member :partying_face: Thank you being so involved in our community :green_heart:"
-      # Grace period: The user was an Active Member in the last 7 days, and has made a post in the last 7 days
-      - daysToConsider: 7
-        rule:
-          type: and
-          rules:
-            - type: previously_had_role
-              roleId: 1223026651340996698 # Active Member
-            - type: post_days
-              atLeast: 1
 
 
 
