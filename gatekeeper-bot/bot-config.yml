@@ -131,7 +131,9 @@ roleConfigs:
           template: >-
             Welcome to our community of practice, USER_MENTION! :farmer:
             
+            
             You are now an Active Member :relieved: You can choose your name-tag color in <#1228353194493476894>.
+            
             
             When you have a few minutes of free time, please take a brief glance over our [Community Guide](https://regenagcoop.org/community-guide/).
       # The user has the "Inactive Member" role, and reacts with a 👍 in #quiet-garden
