@@ -113,6 +113,21 @@ roleConfigs:
         welcomeMessageConfig:
           channel: 1162017937796911209 # connect
           template: "A warm hello to our newest Guest, USER_MENTION :relaxed:"
+      # The user has the "Inactive" role, has posted within the last 180 days, and reacts with a 👍 in #quiet-garden
+      - daysToConsider: 180
+        rule:
+          type: and
+          rules:
+            - type: has_role
+              roleId: 1322321679006961664 # Inactive
+            - type: post_days
+              atLeast: 1
+            - type: reacted
+              emoji: "👍"
+              messageId: 1322322546296885341 # message in quiet garden
+        welcomeMessageConfig:
+          channel: 1162017937796911209 # connect
+          template: "Welcome back, USER_MENTION!"
 
   # Active Member
   - roleId: 1223026651340996698
