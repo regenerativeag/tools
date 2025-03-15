@@ -21,6 +21,8 @@ class Compostinator:
             for (channel_id, channel_config) in config["channel_config_by_channel_id"].items()
         }
 
+        self._message_ids_to_keep = set(message_id for message_id in config["message_ids_to_keep"])
+
         # TODO implement disappearing messages for threads
         self._message_by_thread_id = None 
 
@@ -60,6 +62,8 @@ class Compostinator:
             message = self._convert_discord_message_to_message(discord_message)
             if message is None:
                 continue
+            if message.id in self._message_ids_to_keep:
+                print(f"Ignoring message to keep: {message.id}")
             if message.thread_id != None:
                 raise Exception("threads not implemented yet")
             else:
