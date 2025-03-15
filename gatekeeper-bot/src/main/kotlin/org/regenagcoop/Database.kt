@@ -119,12 +119,12 @@ class Database(
         val persistedHistoryMessages = persistedActivityService.fetchPersistedHistoryMessages()
 
         logger.debug { "Scanning for missing post history" }
-        val (activityHistory, persistedDates) = scanActivityService.scanForCompleteActivityHistory(
+        val (activityHistory, persistedPostDates) = scanActivityService.scanForCompleteActivityHistory(
             startupDate!!,
             persistedHistoryMessages
         )
 
-        return Triple(activityHistory, persistedDates, persistedHistoryMessages)
+        return Triple(activityHistory, persistedPostDates, persistedHistoryMessages)
     }
 
     /**
@@ -132,12 +132,12 @@ class Database(
      *
      * Reasoning for internal instead of private: for tests to override and simplify with mock data.
      */
-    internal suspend fun _persistMissingPostHistory(activityHistory: ActivityHistory, persistedDates: Set<LocalDate>) {
+    internal suspend fun _persistMissingPostHistory(activityHistory: ActivityHistory, persistedPostDates: Set<LocalDate>) {
         logger.debug { "Persisting missing post history into persistence channel" }
         persistPostsService.persistMissingPostHistory(
             startupDate!!,
             activityHistory.postHistory,
-            persistedDates
+            persistedPostDates
         )
     }
 

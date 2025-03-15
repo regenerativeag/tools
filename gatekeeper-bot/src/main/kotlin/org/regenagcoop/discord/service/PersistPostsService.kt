@@ -22,7 +22,7 @@ class PersistPostsService(
     suspend fun persistMissingPostHistory(
         today: LocalDate,
         loadedPostHistory: PostHistory,
-        persistedDates: Set<LocalDate>
+        persistedPostDates: Set<LocalDate>
     ) {
         val startOfRelevantHistory = activeMemberConfig.computeEarliestScanDate(today)
         val yesterday = today.minusDays(1)
@@ -42,7 +42,7 @@ class PersistPostsService(
         var date = startOfRelevantHistory
         // doing this sequentially, instead of in parallel, so the persistence channel is easier to read
         while (date <= yesterday) {
-            if (date !in persistedDates) {
+            if (date !in persistedPostDates) {
                 val usersWhoPosted = usersWhoPostedByDate[date] ?: setOf()
                 logger.debug { "Persisting missing post history for $date" }
                 persistPostHistoryForDay(date, usersWhoPosted)
