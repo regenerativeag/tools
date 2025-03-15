@@ -184,6 +184,7 @@ persistenceConfig:
   channel: 1279607063646965921
 
 
+# TODO #26: make optional
 welcomeToGuildMessageConfig:
   channel: 1162019178513956954 # introductions
   template: >-
