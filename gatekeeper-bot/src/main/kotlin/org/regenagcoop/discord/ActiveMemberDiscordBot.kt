@@ -14,6 +14,7 @@ import org.regenagcoop.discord.model.Reaction
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.discord.service.*
 import org.regenagcoop.model.TriggeringAction
+import java.lang.Exception
 import java.time.*
 import java.time.temporal.ChronoUnit
 
@@ -34,6 +35,7 @@ class ActiveMemberDiscordBot(
     private val bot = DiscordBot(
         discord,
         discordApiToken,
+        onTopLevelError = ::onTopLevelError,
         onJoinedGuild = ::onJoinedGuild,
         onMessage = ::onMessage,
         onReaction = ::onReaction
@@ -97,6 +99,12 @@ class ActiveMemberDiscordBot(
         // In the main thread, block until all jobs are complete
         // Some jobs are endless, so the only way to exit this program is for the user to press Ctl+C or Cmd+C or kill the process.
         awaitEndlessJobs(listenForDiscordEventsJob, dailyJob)
+    }
+
+    private suspend fun onTopLevelError(exception: Exception) {
+        logger.error(exception) { "Top level error occurred" }
+        val message = "Top level error occurred! Stack trace:\n\n${exception.stackTraceToString()}"
+        discord.rooms.postMessage(message, activeMemberConfig.errorConfig.channel)
     }
 
     /** If this message results in the user meeting an active-member threshold, adjust the user's roles. */

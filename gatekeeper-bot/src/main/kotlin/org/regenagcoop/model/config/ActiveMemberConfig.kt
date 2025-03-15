@@ -10,6 +10,7 @@ data class ActiveMemberConfig(
     val downgradeMessageConfig: DowngradeMessageConfig,
     val persistenceConfig: PersistenceConfig,
     val noRoleName: String = "NO_ROLE",
+    val errorConfig: ErrorConfig,
     val welcomeToGuildMessageConfig: WelcomeMessageConfig,
 ) {
     private val maxWindowSize: UInt = roleConfigs.flatMap { cfg ->
