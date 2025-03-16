@@ -21,7 +21,7 @@ class Compostinator:
             for (channel_id, channel_config) in config["channel_config_by_channel_id"].items()
         }
 
-        self._message_ids_to_keep = set(message_id for message_id in config["message_ids_to_keep"])
+        self._message_ids_to_keep = set(config["message_ids_to_keep"])
 
         # TODO implement disappearing messages for threads
         self._message_by_thread_id = None 
@@ -29,6 +29,7 @@ class Compostinator:
     def run(self):
         print(f"Starting bot with dry_run={self._dry_run}")
         print(f"min sleep seconds: {self._min_sleep_seconds}")
+        print(f"messages to keep: {self._message_ids_to_keep}")
         print(self._config)
         self._setup_discord()
         self._discord_client.run(self._discord_api_token)
@@ -37,8 +38,7 @@ class Compostinator:
         self._compostinator_user_id = self._discord_client.user.id
         for channel_id in self._config["channel_config_by_channel_id"]:
             discord_messages_in_channel = await self._fetch_discord_messages_in_channel(channel_id)
-            messages_in_channel = [self._convert_discord_message_to_message(discord_message) for discord_message in discord_messages_in_channel if discord_message.author.id != self._compostinator_user_id]
-            self._messages_by_channel_id[channel_id].extend(messages_in_channel)
+            self._discord_message_queue.extend(discord_messages_in_channel)
             await self._post_enable_message(channel_id, discord_messages_in_channel)
         self._loaded = True
         self._process_queue()
@@ -46,9 +46,9 @@ class Compostinator:
         return True
         
 
-    async def _on_message(self, message):
-        print(f"received message {message.id} in channel {message.channel.id} ({message.channel.name})")
-        self._discord_message_queue.append(message)
+    async def _on_message(self, discord_message):
+        print(f"received message {discord_message.id} in channel {discord_message.channel.id} ({message.channel.name})")
+        self._discord_message_queue.append(discord_message)
         if self._loaded:
             self._process_queue()
         return True
@@ -62,8 +62,6 @@ class Compostinator:
             message = self._convert_discord_message_to_message(discord_message)
             if message is None:
                 continue
-            if message.id in self._message_ids_to_keep:
-                print(f"Ignoring message to keep: {message.id}")
             if message.thread_id != None:
                 raise Exception("threads not implemented yet")
             else:
@@ -119,6 +117,10 @@ class Compostinator:
 
     def _convert_discord_message_to_message(self, discord_message):
         if discord_message.author.id == self._compostinator_user_id:
+            print(f"Ignoring message by us: {discord_message.id}")
+            return None
+        if discord_message.id in self._message_ids_to_keep:
+            print(f"Ignoring message to keep: {discord_message.id}")
             return None
 
         if discord_message.channel.type == discord.ChannelType.text:
