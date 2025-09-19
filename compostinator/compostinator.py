@@ -47,7 +47,7 @@ class Compostinator:
         
 
     async def _on_message(self, discord_message):
-        print(f"received message {discord_message.id} in channel {discord_message.channel.id} ({message.channel.name})")
+        print(f"received message {discord_message.id} in channel {discord_message.channel.id} ({discord_message.channel.name})")
         self._discord_message_queue.append(discord_message)
         if self._loaded:
             self._process_queue()
