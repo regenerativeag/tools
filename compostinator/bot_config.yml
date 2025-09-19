@@ -2,20 +2,12 @@ guild_id: 1162017936656044042 # Regenerative Ag Coop
 
 # A config entry per channel that should have disappearing messages enabled
 channel_config_by_channel_id:
-  # test channel
-  1333528605359214663:
-    delay_unit: SECONDS
-    delay_count: 5
   # connect
   1162017937796911209:
     delay_unit: DAYS
     delay_count: 7
   # community
   1223262623194153111:
-    delay_unit: DAYS
-    delay_count: 7
-  # off-topic
-  1162041648004468828:
     delay_unit: DAYS
     delay_count: 7
   # voice-room
@@ -26,6 +18,12 @@ channel_config_by_channel_id:
   1333853375132995666:
     delay_unit: DAYS
     delay_count: 365
+  # introductions
+  1162019178513956954:
+    delay_unit: DAYS
+    delay_count: 3
+    only_delete_messages_from_user_ids:
+      - 1282462880532402206 #gatekeeper bot
 
 # A list of messageIds that should not be deleted
 message_ids_to_keep: []

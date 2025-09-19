@@ -85,12 +85,13 @@ class Compostinator:
                 message = messages.popleft()
                 if self._dry_run:
                     deleted += 1
+                    print(f"Would have deleted {message.id} from {message.author_id} in {message.channel_id}")
                 else:
                     if message.thread_id is not None:
                         raise Exception("deletion not handled yet in threads")
                     try:
                         await self._discord_client.http.delete_message(message.channel_id, message.id)
-                        print(f"Deleted {message.id} from {message.channel_id}")
+                        print(f"Deleted {message.id} from {message.author_id} in {message.channel_id}")
                         deleted += 1
                     except discord.NotFound:
                         print(f"Message was not found. Was it deleted by someone else? message_id={message.id} channel_id={message.channel_id}")
@@ -136,11 +137,19 @@ class Compostinator:
         if channel_id not in self._config["channel_config_by_channel_id"]:
             return None
 
+        channel_config = self._config["channel_config_by_channel_id"][channel_id]
+
+        # if the selective-user config is enabled, make sure we're only deleting messages from selected users.
+        only_delete_messages_from_user_ids = channel_config.get("only_delete_messages_from_user_ids", None)
+        if only_delete_messages_from_user_ids is not None and discord_message.author.id not in only_delete_messages_from_user_ids:
+          return None
+
         delete_offset_seconds = self._get_delete_offset_seconds(channel_id)
         
         return Message(
             id=discord_message.id,
             channel_id=channel_id,
+            author_id=discord_message.author.id,
             thread_id=None,
             delete_timestamp=discord_message.created_at.timestamp() + delete_offset_seconds
         )
@@ -190,6 +199,12 @@ class Compostinator:
 
         enable_config = self._config["enable_config"]
         channel_config = self._config["channel_config_by_channel_id"][channel_id]
+
+        # don't post message in room if we're only deleting some users' messages.
+        only_delete_messages_from_user_ids = channel_config.get("only_delete_messages_from_user_ids", None)
+        if only_delete_messages_from_user_ids is not None:
+          print(f"Will not post an enable message in {channel_id} because messages will only be deleted from {only_delete_messages_from_user_ids}")
+          return
         
         delay_unit = channel_config["delay_unit"]
         delay_count = channel_config["delay_count"]
