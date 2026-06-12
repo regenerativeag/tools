@@ -1,12 +1,17 @@
 package org.regenagcoop.discord
 
+import dev.kord.core.Kord
+import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
+import dev.kord.core.on
 import dev.kord.gateway.DefaultGateway
 import dev.kord.gateway.MessageCreate
 import dev.kord.gateway.MessageReactionAdd
 import dev.kord.gateway.start
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import mu.KotlinLogging
 import org.regenagcoop.discord.client.DiscordClient
@@ -20,8 +25,31 @@ open class DiscordBot(
     private val onReaction: (suspend (Reaction) -> Unit)? = null,
 ): DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
+    private var slashCommandRegistration: (suspend (Kord) -> Unit)? = null
+    private var onSlashCommand: (suspend (GuildChatInputCommandInteractionCreateEvent) -> Unit)? = null
+
+    fun configureSlashCommands(
+        registration: suspend (Kord) -> Unit,
+        onSlashCommand: suspend (GuildChatInputCommandInteractionCreateEvent) -> Unit,
+    ) {
+        this.slashCommandRegistration = registration
+        this.onSlashCommand = onSlashCommand
+    }
 
     suspend fun login() {
+        coroutineScope {
+            launch {
+                loginForMessagesAndReactions()
+            }
+            if (slashCommandRegistration != null && onSlashCommand != null) {
+                launch {
+                    loginForSlashCommands()
+                }
+            }
+        }
+    }
+
+    private suspend fun loginForMessagesAndReactions() {
         val gateway = DefaultGateway()
 
         if (onMessage != null) {
@@ -51,5 +79,17 @@ open class DiscordBot(
         gateway.start(discordApiToken) {
             // use defaults... nothing to do here.
         }
+    }
+
+    private suspend fun loginForSlashCommands() {
+        val registration = slashCommandRegistration ?: return
+        val onSlashCommand = onSlashCommand ?: return
+        val kord = Kord(discordApiToken)
+        registration.invoke(kord)
+        kord.on<GuildChatInputCommandInteractionCreateEvent> {
+            onSlashCommand.invoke(this)
+        }
+        // endlessly listen for slash command interactions
+        kord.login()
     }
 }

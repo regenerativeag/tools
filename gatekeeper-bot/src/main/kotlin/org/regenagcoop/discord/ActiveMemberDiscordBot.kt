@@ -30,7 +30,6 @@ class ActiveMemberDiscordBot(
     private val discord = Discord(httpClient, activeMemberConfig.guildId, discordApiToken, dryRun)
     private val membershipRoleService = MembershipRoleService(discord, activeMemberConfig, database)
     private val resetMembershipsService = ResetMembershipsService(discord, membershipRoleService, activeMemberConfig)
-    private val slashCommandService = SlashCommandService(discord, discordApiToken, activeMemberConfig)
 
     private val bot = DiscordBot(
         discord,
@@ -38,6 +37,7 @@ class ActiveMemberDiscordBot(
         onMessage = ::onMessage,
         onReaction = ::onReaction
     )
+    private val slashCommandService = SlashCommandService(discord, bot, discord.rooms, activeMemberConfig)
 
 
     fun start() {
@@ -69,12 +69,8 @@ class ActiveMemberDiscordBot(
             dependencies = listOf(loadDatabaseJob, resetRolesJob)
         ) {
             logger.debug { "Listening for discord events" }
-            coroutineScope {
-                launch {
-                    slashCommandService.start()
-                }
-                bot.login() // endlessly listen for websocket events from discord
-            }
+            slashCommandService.configure()
+            bot.login() // endlessly listen for websocket events from discord
         }
 
         // ENDLESSLY do daily tasks

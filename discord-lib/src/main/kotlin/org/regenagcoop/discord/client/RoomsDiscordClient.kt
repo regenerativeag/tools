@@ -64,6 +64,27 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
     }
 
     /**
+     * Fetch a Discord message by URL.
+     * Expected URL format: https://discord.com/channels/<guildId>/<channelId>/<messageId>
+     */
+    open suspend fun getMessageFromUrl(messageUrl: String): Message? {
+        val messageRef = parseMessageUrl(messageUrl) ?: return null
+        if (messageRef.guildId != guildId) {
+            return null
+        }
+
+        return try {
+            restClient.channel.getMessage(
+                Snowflake(messageRef.channelId),
+                Snowflake(messageRef.messageId),
+            ).toMessage()
+        } catch (e: KtorRequestException) {
+            logger.debug(e) { "Failed to fetch message from URL: $messageUrl" }
+            null
+        }
+    }
+
+    /**
      * Read all the messages from the given channel.
      * This function only returns messages that are directly posted to the channel.
      * This function does NOT return messages from threads in the channel.
@@ -285,4 +306,23 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
             throw e
         }
     }
+
+    private fun parseMessageUrl(messageUrl: String): MessageReference? {
+        val regex = Regex(
+            pattern = """^https?://(?:ptb\.|canary\.)?discord(?:app)?\.com/channels/(\d+)/(\d+)/(\d+)$""",
+            option = RegexOption.IGNORE_CASE,
+        )
+        val match = regex.matchEntire(messageUrl.trim()) ?: return null
+        return MessageReference(
+            guildId = match.groupValues[1].toULongOrNull() ?: return null,
+            channelId = match.groupValues[2].toULongOrNull() ?: return null,
+            messageId = match.groupValues[3].toULongOrNull() ?: return null,
+        )
+    }
+
+    private data class MessageReference(
+        val guildId: ULong,
+        val channelId: ChannelId,
+        val messageId: MessageId,
+    )
 }

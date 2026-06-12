@@ -79,5 +79,5 @@ persistenceConfig:
 # Slash commands to register for this bot.
 # Discord displays these commands with a leading `/`.
 slashCommandConfig:
-  postCommand: "/rac-post"
-  editCommand: "/rac-edit"
+  postCommand: "post"
+  editCommand: "edit"

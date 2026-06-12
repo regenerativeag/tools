@@ -5,37 +5,37 @@ import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.createGuildChatInputCommand
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
-import dev.kord.core.on
 import mu.KotlinLogging
 import org.regenagcoop.discord.Discord
+import org.regenagcoop.discord.DiscordBot
 import org.regenagcoop.discord.client.DiscordClient
-import org.regenagcoop.discord.model.ChannelId
-import org.regenagcoop.discord.model.MessageId
+import org.regenagcoop.discord.client.RoomsDiscordClient
 import org.regenagcoop.model.ActiveMemberConfig
 
 /** Handles slash command registration and execution for moderator workflows. */
 class SlashCommandService(
     discord: Discord,
-    private val discordApiToken: String,
+    discordBot: DiscordBot,
+    private val roomsDiscordClient: RoomsDiscordClient,
     private val activeMemberConfig: ActiveMemberConfig,
 ) : DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
-    private val kord = Kord(discordApiToken)
+    private val discordBot = discordBot
 
     private val postCommandName = normalizeSlashCommandName(activeMemberConfig.slashCommandConfig.postCommand)
     private val editCommandName = normalizeSlashCommandName(activeMemberConfig.slashCommandConfig.editCommand)
 
-    suspend fun start() {
-        registerCommands()
-        attachHandlers()
-        // Endlessly listen for slash command interactions.
-        kord.login()
+    fun configure() {
+        discordBot.configureSlashCommands(
+            registration = ::registerCommands,
+            onSlashCommand = ::handleSlashCommand,
+        )
     }
 
-    private suspend fun registerCommands() {
+    private suspend fun registerCommands(kord: Kord) {
         val guildSnowflake = Snowflake(guildId)
-        kord.createGuildChatInputCommand(guildSnowflake, postCommandName, "Post a message to a specific channel") {
-            string("message", "Message content to post") {
+        kord.createGuildChatInputCommand(guildSnowflake, postCommandName, "Post a copy of a linked message") {
+            string("source_message_link", "Discord message link to copy content from") {
                 required = true
             }
             channel("channel", "Channel where the message will be posted") {
@@ -43,11 +43,11 @@ class SlashCommandService(
             }
         }
 
-        kord.createGuildChatInputCommand(guildSnowflake, editCommandName, "Edit an existing message by message link") {
-            string("message", "New message content") {
+        kord.createGuildChatInputCommand(guildSnowflake, editCommandName, "Edit a message to match another linked message") {
+            string("source_message_link", "Discord message link to copy content from") {
                 required = true
             }
-            string("message_link", "Discord message link to edit") {
+            string("target_message_link", "Discord message link to edit") {
                 required = true
             }
         }
@@ -55,15 +55,13 @@ class SlashCommandService(
         logger.info { "Registered slash commands '/$postCommandName' and '/$editCommandName' for guildId=$guildId" }
     }
 
-    private fun attachHandlers() {
-        kord.on<GuildChatInputCommandInteractionCreateEvent> {
-            val command = interaction.command
-            when (command.rootName) {
-                postCommandName -> handlePostCommand(this)
-                editCommandName -> handleEditCommand(this)
-                else -> {
-                    // no-op
-                }
+    private suspend fun handleSlashCommand(event: GuildChatInputCommandInteractionCreateEvent) {
+        val command = event.interaction.command
+        when (command.rootName) {
+            postCommandName -> handlePostCommand(event)
+            editCommandName -> handleEditCommand(event)
+            else -> {
+                // no-op
             }
         }
     }
@@ -78,18 +76,26 @@ class SlashCommandService(
         }
 
         val command = event.interaction.command
-        val message = command.strings["message"]
+        val sourceMessageLink = command.strings["source_message_link"]
         val channelId = command.channels["channel"]?.id?.value
-        if (message.isNullOrBlank() || channelId == null) {
+        if (sourceMessageLink.isNullOrBlank() || channelId == null) {
             response.respond {
-                content = "Invalid command usage. Please provide both `message` and `channel`."
+                content = "Invalid command usage. Please provide both `source_message_link` and `channel`."
             }
             return
         }
 
-        discord.rooms.postMessage(message = message, channelId = channelId)
+        val sourceMessage = roomsDiscordClient.getMessageFromUrl(sourceMessageLink)
+        if (sourceMessage == null) {
+            response.respond {
+                content = "Invalid source message link or message could not be fetched."
+            }
+            return
+        }
+
+        roomsDiscordClient.postMessage(message = sourceMessage.text, channelId = channelId)
         response.respond {
-            content = "Posted message to <#$channelId>."
+            content = "Posted message to <#$channelId> using content from the source message."
         }
     }
 
@@ -103,37 +109,38 @@ class SlashCommandService(
         }
 
         val command = event.interaction.command
-        val message = command.strings["message"]
-        val messageLink = command.strings["message_link"]
-        if (message.isNullOrBlank() || messageLink.isNullOrBlank()) {
+        val sourceMessageLink = command.strings["source_message_link"]
+        val targetMessageLink = command.strings["target_message_link"]
+        if (sourceMessageLink.isNullOrBlank() || targetMessageLink.isNullOrBlank()) {
             response.respond {
-                content = "Invalid command usage. Please provide both `message` and `message_link`."
+                content = "Invalid command usage. Please provide both `source_message_link` and `target_message_link`."
             }
             return
         }
 
-        val parsedMessageRef = parseMessageLink(messageLink)
-        if (parsedMessageRef == null) {
+        val sourceMessage = roomsDiscordClient.getMessageFromUrl(sourceMessageLink)
+        if (sourceMessage == null) {
             response.respond {
-                content = "Invalid message link. Expected format like https://discord.com/channels/<guild>/<channel>/<message>."
+                content = "Invalid source message link or message could not be fetched."
             }
             return
         }
 
-        if (parsedMessageRef.guildId != guildId) {
+        val targetMessage = roomsDiscordClient.getMessageFromUrl(targetMessageLink)
+        if (targetMessage == null) {
             response.respond {
-                content = "That message link points to a different guild."
+                content = "Invalid target message link or message could not be fetched."
             }
             return
         }
 
-        discord.rooms.editMessage(
-            channelId = parsedMessageRef.channelId,
-            messageId = parsedMessageRef.messageId,
-            newText = message,
+        roomsDiscordClient.editMessage(
+            channelId = targetMessage.channelId,
+            messageId = targetMessage.messageId,
+            newText = sourceMessage.text,
         )
         response.respond {
-            content = "Edited message in <#${parsedMessageRef.channelId}>."
+            content = "Edited target message in <#${targetMessage.channelId}> using source message content."
         }
     }
 
@@ -148,23 +155,4 @@ class SlashCommandService(
         require(normalized.isNotBlank()) { "Slash command name cannot be blank. Config value='$configValue'" }
         return normalized
     }
-
-    private fun parseMessageLink(link: String): ParsedMessageRef? {
-        val regex = Regex(
-            pattern = """^https?://(?:ptb\.|canary\.)?discord(?:app)?\.com/channels/(\d+)/(\d+)/(\d+)$""",
-            option = RegexOption.IGNORE_CASE,
-        )
-        val match = regex.matchEntire(link.trim()) ?: return null
-        return ParsedMessageRef(
-            guildId = match.groupValues[1].toULongOrNull() ?: return null,
-            channelId = match.groupValues[2].toULongOrNull() ?: return null,
-            messageId = match.groupValues[3].toULongOrNull() ?: return null,
-        )
-    }
-
-    private data class ParsedMessageRef(
-        val guildId: ULong,
-        val channelId: ChannelId,
-        val messageId: MessageId,
-    )
 }

@@ -32,10 +32,10 @@ data class ActiveMemberConfig(
     )
 
     data class SlashCommandConfig(
-        /** Command users run as `/rac-post` by default */
-        val postCommand: String = "/rac-post",
-        /** Command users run as `/rac-edit` by default */
-        val editCommand: String = "/rac-edit",
+        /** Command users run as `/post` by default */
+        val postCommand: String = "post",
+        /** Command users run as `/edit` by default */
+        val editCommand: String = "edit",
     )
 
     data class RoleConfig(
