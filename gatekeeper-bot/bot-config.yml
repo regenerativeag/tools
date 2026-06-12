@@ -75,3 +75,9 @@ downgradeMessageConfig:
 # The channel to log user activity in (e.g. posts & reactions)
 persistenceConfig:
   channel: 1279607063646965921
+
+# Slash commands to register for this bot.
+# Discord displays these commands with a leading `/`.
+slashCommandConfig:
+  postCommand: "/rac-post"
+  editCommand: "/rac-edit"

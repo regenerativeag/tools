@@ -12,6 +12,7 @@ data class ActiveMemberConfig(
     val roleConfigs: List<RoleConfig>,
     val downgradeMessageConfig: DowngradeMessageConfig,
     val persistenceConfig: PersistenceConfig,
+    val slashCommandConfig: SlashCommandConfig = SlashCommandConfig(),
 ) {
     private val maxWindowSize: Int = roleConfigs.flatMap {
             listOf(it.keepRoleConfig.windowSize, it.addRoleConfig.windowSize)
@@ -28,6 +29,13 @@ data class ActiveMemberConfig(
 
     data class PersistenceConfig(
         val channel: ChannelId,
+    )
+
+    data class SlashCommandConfig(
+        /** Command users run as `/rac-post` by default */
+        val postCommand: String = "/rac-post",
+        /** Command users run as `/rac-edit` by default */
+        val editCommand: String = "/rac-edit",
     )
 
     data class RoleConfig(
