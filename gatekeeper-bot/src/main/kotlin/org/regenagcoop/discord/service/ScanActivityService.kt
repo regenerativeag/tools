@@ -20,17 +20,17 @@ class ScanActivityService(
      */
     suspend fun scanForCompleteActivityHistory(today: LocalDate, persistedHistoryMessages: List<Message>): Pair<ActivityHistory, Set<LocalDate>> {
         val persistedActivityHistory = persistedActivityService.computePersistedActivityHistory(persistedHistoryMessages)
-        val usersWhoPostedAndReactedByDate = persistedActivityHistory.usersWhoPostedAndReactedByDate
+        val usersWhoPostedByDate = persistedActivityHistory.usersWhoPostedByDate
 
         val earliestUnpersistedDate = persistedActivityService.computeEarliestUnpersistedDate(
             today,
-            usersWhoPostedAndReactedByDate.keys
+            usersWhoPostedByDate.keys
         )
 
         val scannedMessages = scanMessagesFromAllChannelsAndThreads(earliestUnpersistedDate)
 
         val activityHistory = combinePersistedAndScannedHistory(persistedActivityHistory, scannedMessages)
-        return activityHistory to usersWhoPostedAndReactedByDate.keys
+        return activityHistory to usersWhoPostedByDate.keys
     }
 
     private suspend fun scanMessagesFromAllChannelsAndThreads(untilDate: LocalDate): List<Message> {
@@ -61,11 +61,15 @@ class ScanActivityService(
             addTo(postHistory, message.userId, message.utcDate)
         }
 
-        // add persisted data (excluding role changes) into history
-        persistedActivityHistory.usersWhoPostedAndReactedByDate.forEach { date, (usersWhoPosted, usersWhoReacted) ->
+        // add persisted post data
+        persistedActivityHistory.usersWhoPostedByDate.forEach { (date, usersWhoPosted) ->
             usersWhoPosted.forEach { userId ->
                 addTo(postHistory, userId, date)
             }
+        }
+
+        // add persisted reaction data
+        persistedActivityHistory.usersWhoReactedByDate.forEach { (date, usersWhoReacted) ->
             usersWhoReacted.forEach { userId ->
                 addTo(reactionHistory, userId, date)
             }

@@ -7,9 +7,10 @@ import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.discord.service.*
-import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.model.config.ActiveMemberConfig
 import org.regenagcoop.model.ActivityHistory
 import org.regenagcoop.model.RoleChange
+import org.regenagcoop.model.UserActivityHistory
 import java.time.LocalDate
 
 /**
@@ -50,11 +51,11 @@ class Database(
             this.initialized = true
             this.startupDate = startupDate
 
-            val (activityHistory, persistedDates, persistedHistoryMessages) = fetchActivityHistory()
+            val (activityHistory, persistedDates, persistedHistoryMessages) = _fetchActivityHistory()
 
             this.persistReactionService = PersistReactionService(discord, activeMemberConfig, startupDate, persistedHistoryMessages)
 
-            persistMissingPostHistory(activityHistory, persistedDates)
+            _persistMissingPostHistory(activityHistory, persistedDates)
 
             this.inMemoryDatabase = InMemoryDatabase(activityHistory)
         }
@@ -70,7 +71,7 @@ class Database(
         }
     }
 
-    suspend fun addPost(userId: UserId, date: LocalDate): AddPostResult {
+    suspend fun addPost(userId: UserId, date: LocalDate): Boolean {
         mutex.withLock {
             ensureInitialized()
             return inMemoryDatabase!!.addPost(userId, date)
@@ -80,7 +81,7 @@ class Database(
     suspend fun addReaction(userId: UserId, date: LocalDate) {
         mutex.withLock {
             ensureInitialized()
-            val (isFirstReactionOfDay) = inMemoryDatabase!!.addReaction(userId, date)
+            val isFirstReactionOfDay = inMemoryDatabase!!.addReaction(userId, date)
             if (isFirstReactionOfDay) {
                 persistReactionService!!.persistReaction(date, userId)
             }
@@ -95,10 +96,16 @@ class Database(
         }
     }
 
-    suspend fun getPostHistory(): Map<UserId, Set<LocalDate>> {
+    suspend fun getUserActivityHistory(userId: UserId): UserActivityHistory {
         mutex.withLock {
             ensureInitialized()
-            return inMemoryDatabase!!.getPostHistory()
+            return inMemoryDatabase!!.getUserActivityHistory(userId)
+        }
+    }
+
+    suspend fun getActivityHistory(): ActivityHistory {
+        mutex.withLock {
+            return inMemoryDatabase!!.getActivityHistory()
         }
     }
 
@@ -107,17 +114,17 @@ class Database(
      *
      * Reasoning for internal instead of private: for tests to override and simplify with mock data.
      */
-    internal suspend fun fetchActivityHistory(): Triple<ActivityHistory, Set<LocalDate>, List<Message>> {
+    internal suspend fun _fetchActivityHistory(): Triple<ActivityHistory, Set<LocalDate>, List<Message>> {
         logger.debug { "Reading from persistence log" }
         val persistedHistoryMessages = persistedActivityService.fetchPersistedHistoryMessages()
 
         logger.debug { "Scanning for missing post history" }
-        val (activityHistory, persistedDates) = scanActivityService.scanForCompleteActivityHistory(
+        val (activityHistory, persistedPostDates) = scanActivityService.scanForCompleteActivityHistory(
             startupDate!!,
             persistedHistoryMessages
         )
 
-        return Triple(activityHistory, persistedDates, persistedHistoryMessages)
+        return Triple(activityHistory, persistedPostDates, persistedHistoryMessages)
     }
 
     /**
@@ -125,12 +132,12 @@ class Database(
      *
      * Reasoning for internal instead of private: for tests to override and simplify with mock data.
      */
-    internal suspend fun persistMissingPostHistory(activityHistory: ActivityHistory, persistedDates: Set<LocalDate>) {
+    internal suspend fun _persistMissingPostHistory(activityHistory: ActivityHistory, persistedPostDates: Set<LocalDate>) {
         logger.debug { "Persisting missing post history into persistence channel" }
         persistPostsService.persistMissingPostHistory(
             startupDate!!,
             activityHistory.postHistory,
-            persistedDates
+            persistedPostDates
         )
     }
 
@@ -138,10 +145,5 @@ class Database(
         if (!initialized) {
             throw IllegalStateException("Please call initialize() before calling this method.")
         }
-    }
-
-    companion object {
-        data class AddPostResult(val isFirstPostOfDay: Boolean, val postDays: Set<LocalDate>)
-        data class AddReactionResult(val isFirstReactionOfDay: Boolean)
     }
 }

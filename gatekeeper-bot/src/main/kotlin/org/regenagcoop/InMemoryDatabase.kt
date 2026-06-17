@@ -3,11 +3,10 @@ package org.regenagcoop
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import mu.KotlinLogging
-import org.regenagcoop.Database.Companion.AddPostResult
-import org.regenagcoop.Database.Companion.AddReactionResult
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActivityHistory
 import org.regenagcoop.model.RoleChange
+import org.regenagcoop.model.UserActivityHistory
 import java.time.LocalDate
 
 class InMemoryDatabase(initialData: ActivityHistory) {
@@ -30,15 +29,12 @@ class InMemoryDatabase(initialData: ActivityHistory) {
             reactionHistory[userId] = dates.toMutableSet()
         }
 
-        initialData.roleChangeHistory.forEach { roleChange ->
-            if (roleChange.userId !in roleChangeHistory) {
-                roleChangeHistory[roleChange.userId] = mutableListOf()
-            }
-            roleChangeHistory[roleChange.userId]!!.add(roleChange)
+        initialData.roleChangeHistory.forEach { (userId, roleChanges) ->
+            roleChangeHistory[userId] = roleChanges.toMutableList()
         }
     }
 
-    suspend fun addPost(userId: UserId, date: LocalDate): AddPostResult {
+    suspend fun addPost(userId: UserId, date: LocalDate): Boolean {
         mutex.withLock {
             if (userId !in postHistory) {
                 postHistory[userId] = mutableSetOf()
@@ -48,11 +44,11 @@ class InMemoryDatabase(initialData: ActivityHistory) {
             if (firstPostOfDay) {
                 postDates.add(date)
             }
-            return AddPostResult(firstPostOfDay, postDates.toSet())
+            return firstPostOfDay
         }
     }
 
-    suspend fun addReaction(userId: UserId, date: LocalDate): AddReactionResult {
+    suspend fun addReaction(userId: UserId, date: LocalDate): Boolean {
         mutex.withLock {
             if (userId !in reactionHistory) {
                 reactionHistory[userId] = mutableSetOf()
@@ -62,7 +58,7 @@ class InMemoryDatabase(initialData: ActivityHistory) {
             if (firstReactionOfDay) {
                 reactionDays.add(date)
             }
-            return AddReactionResult(firstReactionOfDay)
+            return firstReactionOfDay
         }
     }
 
@@ -75,9 +71,24 @@ class InMemoryDatabase(initialData: ActivityHistory) {
         }
     }
 
-    suspend fun getPostHistory(): Map<UserId, Set<LocalDate>> {
+    suspend fun getUserActivityHistory(userId: UserId): UserActivityHistory {
         mutex.withLock {
-            return postHistory.toMap()
+            return UserActivityHistory(
+                userId,
+                postHistory[userId]?.toSet() ?: setOf(),
+                reactionHistory[userId]?.toSet() ?: setOf(),
+                roleChangeHistory[userId]?.toList() ?: listOf(),
+            )
+        }
+    }
+
+    suspend fun getActivityHistory(): ActivityHistory {
+        mutex.withLock {
+            return ActivityHistory(
+                postHistory.mapValues { it.value.toSet() },
+                reactionHistory.mapValues { it.value.toSet() },
+                roleChangeHistory.mapValues { it.value.toList() }
+            )
         }
     }
 

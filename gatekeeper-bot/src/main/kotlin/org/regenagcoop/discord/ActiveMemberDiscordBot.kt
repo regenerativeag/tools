@@ -8,12 +8,13 @@ import mu.KotlinLogging
 import org.regenagcoop.Database
 import org.regenagcoop.coroutine.TopLevelJob.Companion.awaitEndlessJobs
 import org.regenagcoop.coroutine.TopLevelJob.Companion.createTopLevelJob
-import org.regenagcoop.model.ActiveMemberConfig
-import org.regenagcoop.model.PostHistory
+import org.regenagcoop.model.config.ActiveMemberConfig
 import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.Reaction
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.discord.service.*
+import org.regenagcoop.model.TriggeringAction
+import java.lang.Exception
 import java.time.*
 import java.time.temporal.ChronoUnit
 
@@ -29,11 +30,13 @@ class ActiveMemberDiscordBot(
     private val canUpdateRolesOrDbMutex = Mutex()
     private val discord = Discord(httpClient, activeMemberConfig.guildId, discordApiToken, dryRun)
     private val membershipRoleService = MembershipRoleService(discord, activeMemberConfig, database)
-    private val resetMembershipsService = ResetMembershipsService(discord, membershipRoleService, activeMemberConfig)
+    private val updateMembershipRolesService = UpdateMembershipRolesService(discord, membershipRoleService, activeMemberConfig, database)
 
     private val bot = DiscordBot(
         discord,
         discordApiToken,
+        onTopLevelError = ::onTopLevelError,
+        onJoinedGuild = ::onJoinedGuild,
         onMessage = ::onMessage,
         onReaction = ::onReaction
     )
@@ -58,8 +61,7 @@ class ActiveMemberDiscordBot(
             dependencies = listOf(loadDatabaseJob)
         ){
             logger.debug { "Resetting roles" }
-            val postHistory = database.getPostHistory()
-            resetMembershipsService.resetRolesGivenPostHistory(postHistory, startupDate)
+            updateMembershipRolesService.updateMembershipRolesForAllUsers(startupDate)
         }
 
         // ENDLESSLY listen for websocket events from discord.
@@ -99,39 +101,39 @@ class ActiveMemberDiscordBot(
         awaitEndlessJobs(listenForDiscordEventsJob, dailyJob)
     }
 
+    private suspend fun onTopLevelError(exception: Exception) {
+        logger.error(exception) { "Top level error occurred" }
+        val message = "Top level error occurred! Stack trace:\n\n${exception.stackTraceToString()}"
+        discord.rooms.postMessage(message, activeMemberConfig.errorConfig.channel)
+    }
+
     /** If this message results in the user meeting an active-member threshold, adjust the user's roles. */
     private suspend fun onMessage(message: Message) {
-        if (message.userId in activeMemberConfig.excludedUserIds) {
-            return
-        }
-
         canUpdateRolesOrDbMutex.withLock {
-            val (isFirstPostOfDay, postDays) = database.addPost(message.userId, message.utcDate)
-            if (!isFirstPostOfDay) {
-                return
-            }
-            // check roles in reverse order, so that user is granted the highest role they are qualified for
-            for (roleConfig in activeMemberConfig.roleConfigs.reversed()) {
-                val meetsThreshold = meetsThreshold(roleConfig, postDays, message.utcDate)
-                if (meetsThreshold) {
-                    val roleName = discord.roleNameCache.lookup(roleConfig.roleId)
-                    val username = discord.usernameCache.lookup(message.userId)
-                    logger.debug { "(Re)adding $roleName for $username (${message.userId})." }
-                    membershipRoleService.addMembershipRoleToUsers(roleConfig, setOf(message.userId))
-                    break
-                }
-            }
+            val isFirstPostOfDay = database.addPost(message.userId, message.utcDate)
+            val triggeringAction = TriggeringAction.PostAdded(isFirstPostOfDay)
+            updateMembershipRolesService.updateMembershipRoleForUser(message.userId, message.utcDate, triggeringAction)
         }
     }
 
     /** Update the reaction history in the database & persist reaction in persistence channel */
     private suspend fun onReaction(reaction: Reaction) {
-        if (reaction.userId in activeMemberConfig.excludedUserIds) {
-            return
-        }
-
         canUpdateRolesOrDbMutex.withLock {
             database.addReaction(reaction.userId, reaction.utcDate)
+            val triggeringAction = TriggeringAction.ReactionAdded(reaction.messageId, reaction.emoji)
+            updateMembershipRolesService.updateMembershipRoleForUser(reaction.userId, reaction.utcDate, triggeringAction)
+        }
+    }
+
+    private suspend fun onJoinedGuild(userId: UserId) {
+        val username = discord.usernameCache.lookup(userId)
+        logger.debug { "$username ($userId) joined the guild!" }
+        val welcomeConfig = activeMemberConfig.welcomeToGuildMessageConfig
+        val channelWelcomeMessage = welcomeConfig.createWelcomeMessage(userId)
+        discord.rooms.postMessage(channelWelcomeMessage, welcomeConfig.channel, listOf(userId))
+        val directWelcomeMessage = welcomeConfig.directMessageConfig?.message
+        if (directWelcomeMessage != null) {
+            discord.users.sendDirectMessageToUser(userId, directWelcomeMessage)
         }
     }
 
@@ -156,45 +158,12 @@ class ActiveMemberDiscordBot(
     private suspend fun downgradeRoles() {
         canUpdateRolesOrDbMutex.withLock {
             val today = getTodaysDate()
-            val postHistory = database.getPostHistory()
-            resetMembershipsService.resetRolesGivenPostHistory(postHistory, today)
+            updateMembershipRolesService.updateMembershipRolesForAllUsers(today)
         }
     }
 
 
     companion object {
         internal fun getTodaysDate() = LocalDate.now(ZoneOffset.UTC)
-
-        /** Determine whether the user should have the role identified by [roleConfig], given the user's [postDays] */
-        internal fun meetsThreshold(roleConfig: ActiveMemberConfig.RoleConfig, postDays: Set<LocalDate>, today: LocalDate): Boolean {
-            val earliestAddDate = today.minusDays(roleConfig.addRoleConfig.windowSize - 1L)
-            val earliestKeepDate = today.minusDays(roleConfig.keepRoleConfig.windowSize - 1L)
-            val meetsAddThreshold = postDays.filter { date -> date >=  earliestAddDate }.size >= roleConfig.addRoleConfig.minPostDays
-            val meetsKeepThreshold = postDays.filter { date -> date >= earliestKeepDate }.size >= roleConfig.keepRoleConfig.minPostDays
-            return meetsAddThreshold && meetsKeepThreshold
-        }
-
-        /**
-         * Return the members that should be in each role.
-         * The result is in the same order as [ActiveMemberConfig.roleConfigs]
-         */
-        internal fun computeActiveMembers(
-            postHistory: PostHistory,
-            today: LocalDate,
-            activeMemberConfig: ActiveMemberConfig,
-        ): List<Set<UserId>> {
-            val usersByRoleIndex = activeMemberConfig.roleConfigs.map { roleConfig ->
-                val membersMeetingThreshold = postHistory.filterValues { meetsThreshold(roleConfig, it, today) }.keys
-                membersMeetingThreshold - activeMemberConfig.excludedUserIds
-            }
-
-            val seen = mutableSetOf<UserId>()
-            // user should only get the highest-priority role they are qualified for
-            return usersByRoleIndex.reversed().map { usersInRole ->
-                val usersToKeep = usersInRole - seen
-                seen.addAll(usersToKeep)
-                usersToKeep
-            }.reversed()
-        }
     }
 }

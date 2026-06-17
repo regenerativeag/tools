@@ -6,7 +6,7 @@ import org.regenagcoop.*
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.client.RoomsDiscordClient
 import org.regenagcoop.discord.service.PersistedActivityService
-import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.model.config.ActiveMemberConfig
 import kotlin.test.Ignore
 import kotlin.test.assertEquals
 
@@ -37,7 +37,7 @@ class ManualTests {
         val guestRoleConfig = activeMemberConfig.roleConfigs[0]
         assertEquals(RoleIds.guest, guestRoleConfig.roleId)
 
-        val message = guestRoleConfig.welcomeMessageConfig.createWelcomeMessage(userId)
+        val message = guestRoleConfig.paths.firstNotNullOf { it.welcomeMessageConfig }.createWelcomeMessage(userId)
 
         // execute
         val roomsDiscordClient = RoomsDiscordClient(discord)
