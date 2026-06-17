@@ -2,61 +2,26 @@ package org.regenagcoop.discord.client
 
 import dev.kord.common.entity.DiscordGuildMember
 import dev.kord.common.entity.Snowflake
-import dev.kord.rest.request.KtorRequestException
+import dev.kord.rest.json.request.DMCreateRequest
 import dev.kord.rest.route.Position
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import mu.KotlinLogging
-import org.regenagcoop.coroutine.parallelFilterIO
 import org.regenagcoop.coroutine.parallelForEachIO
-import org.regenagcoop.coroutine.parallelMapIO
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.RoleId
+import org.regenagcoop.discord.model.User
 import org.regenagcoop.discord.model.UserId
+import org.regenagcoop.discord.toUser
 
 class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
 
-    suspend fun mapUserIdsToNames(userIds: Iterable<UserId>): List<String> {
-        return userIds.parallelMapIO { usernameCache.lookup(it) }
+    suspend fun getUsersInGuild(): List<User> {
+        return getGuildMembers().map { it.toUser() }
     }
 
-    /** Of the users provided, only return the users which are still in the guild */
-    suspend fun filterToUsersCurrentlyInGuild(userIds: Set<UserId>): Set<UserId> {
-        return userIds.parallelFilterIO {
-            try {
-                getGuildMember(it)
-                true
-            } catch (e: KtorRequestException) {
-                if (e.status.code == 404) {
-                    false
-                } else {
-                    throw e
-                }
-            }
-        }.toSet()
-    }
-
-    /** Fetch the users with the given roleId */
-    suspend fun getUsersWithRole(roleId: RoleId): Set<UserId> {
-        val sRoleId = Snowflake(roleId)
-        val limit = 100
-
-        val members = mutableListOf<DiscordGuildMember>()
-        do {
-            val page = getGuildMembers(limit, members.lastOrNull())
-            members.addAll(page)
-            page.forEach { usernameCache.cacheFrom(it) }
-        } while (page.size == limit)
-
-        return members
-            .filter { sRoleId in it.roles }
-            .mapNotNull { it.user.value?.id?.value}
-            .toSet()
-    }
-
-    suspend fun getUserRoles(userId: UserId): Set<RoleId> {
-        return getGuildMember(userId).roles.map { it.value }.toSet()
+    suspend fun getUser(userId: UserId): User {
+        val discordMember = getGuildMember(userId)
+        return discordMember.toUser()
     }
 
     suspend fun addRoleToUser(userId: UserId, roleId: RoleId) {
@@ -65,10 +30,34 @@ class UsersDiscordClient(discord: Discord) : DiscordClient(discord) {
 
     /** Remove [roleIds] from [userId]. Returns the roles that were actually removed */
     suspend fun removeRolesFromUser(userId: UserId, roleIds: Collection<RoleId>): Set<RoleId> {
-        val currentRoleIds = getUserRoles(userId)
+        val currentRoleIds = getUser(userId).roles
         val roleIdsToRemove = currentRoleIds.intersect(roleIds.toSet())
         deleteRolesFromGuildMember(userId, roleIdsToRemove)
         return roleIdsToRemove
+    }
+
+    suspend fun sendDirectMessageToUser(userId: UserId, message: String) {
+        if (dryRun) {
+            val username = usernameCache.lookup(userId)
+            logger.debug { "Would have sent a DM directly to $userId ($username):\n$message" }
+        } else {
+            val sUserId = Snowflake(userId)
+            val dmChannel = restClient.user.createDM(DMCreateRequest(sUserId))
+            restClient.channel.createMessage(dmChannel.id) {
+                this.content = message
+            }
+        }
+    }
+
+    private suspend fun getGuildMembers(limit: Int = 100): List<DiscordGuildMember> {
+        val members = mutableListOf<DiscordGuildMember>()
+        do {
+            val page = getGuildMembers(limit, members.lastOrNull())
+            members.addAll(page)
+            page.forEach { usernameCache.cacheFrom(it) }
+        } while (page.size == limit)
+
+        return members
     }
 
     private suspend fun getGuildMember(userId: UserId) = restClient.guild.getGuildMember(sGuildId, Snowflake(userId))

@@ -1,17 +1,20 @@
 package org.regenagcoop
 
-import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.discord.model.GuildId
+import org.regenagcoop.model.config.ActiveMemberConfig
 import org.regenagcoop.tools.GlobalObjectMapper
 import java.io.File
 
 val defaultConfigPath = "bot-config.yml"
 
-val activeMemberConfig = GlobalObjectMapper.readValue(
-    File(defaultConfigPath),
-    ActiveMemberConfig::class.java
-)
+val activeMemberConfig: ActiveMemberConfig by lazy {
+    GlobalObjectMapper.readValue(
+        File(defaultConfigPath),
+        ActiveMemberConfig::class.java
+    )
+}
 
-val guildId = activeMemberConfig.guildId
+val guildId: GuildId by lazy { activeMemberConfig.guildId }
 
 object ChannelIds {
     val connect = 1162017937796911209uL
@@ -20,8 +23,16 @@ object ChannelIds {
     val persistenceLog = 1279607063646965921uL
 }
 
+object MessageIds {
+    val quietGardenMessage = 1322322546296885341uL
+}
+
 object RoleIds {
+    val inactive = 1322321679006961664uL
+    val inactiveMember = 1322321901586087976uL
+    val visitor: ULong? = null
     val guest = 1240396803946582056uL
+    val member = 1322322020284760196uL
     val activeMember = 1223026651340996698uL
 }
 

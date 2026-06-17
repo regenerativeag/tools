@@ -1,0 +1,7 @@
+package org.regenagcoop.model.config
+
+import org.regenagcoop.discord.model.ChannelId
+
+data class PersistenceConfig(
+    val channel: ChannelId,
+)

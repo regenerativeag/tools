@@ -7,7 +7,9 @@ import java.time.ZoneOffset
 
 data class Reaction(
     val userId: UserId,
-    val instant: Instant
+    val instant: Instant,
+    val messageId: MessageId,
+    val emoji: String,
 ) {
     val utcDate: LocalDate
         get() = LocalDate.ofInstant(instant.toJavaInstant(), ZoneOffset.UTC)

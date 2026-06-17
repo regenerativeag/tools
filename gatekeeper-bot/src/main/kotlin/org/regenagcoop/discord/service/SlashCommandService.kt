@@ -10,7 +10,7 @@ import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.DiscordBot
 import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.client.RoomsDiscordClient
-import org.regenagcoop.model.ActiveMemberConfig
+import org.regenagcoop.model.config.ActiveMemberConfig
 
 /** Handles slash command registration and execution for moderator workflows. */
 class SlashCommandService(
