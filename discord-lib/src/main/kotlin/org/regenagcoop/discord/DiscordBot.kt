@@ -1,20 +1,24 @@
 package org.regenagcoop.discord
 
+import dev.kord.common.entity.Permission
+import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
+import dev.kord.core.behavior.interaction.createGuildChatInputCommand
+import dev.kord.core.behavior.interaction.response.respond
+import dev.kord.core.event.guild.MemberJoinEvent
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
+import dev.kord.core.event.message.MessageCreateEvent
+import dev.kord.core.event.message.ReactionAddEvent
 import dev.kord.core.on
-import dev.kord.gateway.*
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
+import dev.kord.gateway.Intent
+import dev.kord.gateway.PrivilegedIntent
 import kotlinx.datetime.Clock
+import kotlinx.datetime.toJavaInstant
 import mu.KotlinLogging
 import org.regenagcoop.discord.client.DiscordClient
-import org.regenagcoop.discord.model.Message
-import org.regenagcoop.discord.model.Reaction
-import org.regenagcoop.discord.model.UserId
+import org.regenagcoop.discord.model.*
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.concurrent.ExecutionException
 
 open class DiscordBot(
@@ -24,109 +28,135 @@ open class DiscordBot(
     private val onJoinedGuild: (suspend (UserId) -> Unit)? = null,
     private val onMessage: (suspend (Message) -> Unit)? = null,
     private val onReaction: (suspend (Reaction) -> Unit)? = null,
+    private val getSlashCommands: (suspend () -> List<SlashCommandDefinition>)? = null,
+    private val onSlashCommand: (suspend (SlashCommandInteraction) -> Unit)? = null,
 ): DiscordClient(discord) {
     private val logger = KotlinLogging.logger { }
-    private var slashCommandRegistration: (suspend (Kord) -> Unit)? = null
-    private var onSlashCommand: (suspend (GuildChatInputCommandInteractionCreateEvent) -> Unit)? = null
 
-    fun configureSlashCommands(
-        registration: suspend (Kord) -> Unit,
-        onSlashCommand: suspend (GuildChatInputCommandInteractionCreateEvent) -> Unit,
-    ) {
-        this.slashCommandRegistration = registration
-        this.onSlashCommand = onSlashCommand
+    lateinit var kord: Kord
+        private set
+
+    init {
+        require((getSlashCommands == null) == (onSlashCommand == null)) {
+            "getSlashCommands and onSlashCommand must both be provided or both be null"
+        }
     }
 
     suspend fun login() {
-        coroutineScope {
-            launch {
-                loginForMessagesAndReactions()
-            }
-            if (slashCommandRegistration != null && onSlashCommand != null) {
-                launch {
-                    loginForSlashCommands()
+        kord = Kord(discordApiToken)
+
+        getSlashCommands?.invoke()?.forEach { def ->
+            kord.createGuildChatInputCommand(Snowflake(guildId), def.name, def.description) {
+                def.options.forEach { opt ->
+                    when (opt.type) {
+                        SlashCommandOptionType.STRING -> string(opt.name, opt.description) { required = opt.required }
+                        SlashCommandOptionType.CHANNEL -> channel(opt.name, opt.description) { required = opt.required }
+                    }
                 }
             }
         }
-    }
-
-    private suspend fun loginForMessagesAndReactions() {
-        val gateway = DefaultGateway()
 
         if (onJoinedGuild != null) {
-            gateway.events.filterIsInstance<GuildMemberAdd>().onEach { guildMemberAdd ->
+            kord.on<MemberJoinEvent> {
                 try {
-                    val user = guildMemberAdd.member.user.value!!
-                    usernameCache.cacheFrom(user)
-                    val userId = user.id.value
+                    val userId = member.id.value
                     onJoinedGuild.invoke(userId)
-                } catch(e: Exception) {
-                    val user = guildMemberAdd.member.user.value
-                    val wrapped = ExecutionException("Exception occurred while processing GuildMemberAdd event for user ${user?.id?.value} (${user?.username})", e)
+                } catch (e: Exception) {
+                    val wrapped = ExecutionException(
+                        "Exception occurred while processing MemberJoinEvent for user ${member.id.value} (${member.username})",
+                        e,
+                    )
                     onTopLevelError(wrapped)
                 }
-            }.launchIn(gateway)
+            }
         }
 
         if (onMessage != null) {
-            gateway.events.filterIsInstance<MessageCreate>().onEach { messageCreate ->
+            kord.on<MessageCreateEvent> {
                 try {
-                    with(messageCreate.message) {
-                        val channelName = channelNameCache.lookup(this.channelId.value)
-                        val userId = this.getUserId()
-                        val username = usernameCache.lookup(userId)
-                        val localDate = this.getUtcDate()
-                        logger.debug { "Message received from $username on $localDate in $channelName" }
-                        onMessage.invoke(this.toMessage())
-                    }
+                    val discordMessage = message
+                    val author = discordMessage.author
+                        ?: throw IllegalStateException("Message ${discordMessage.id.value} has no author")
+                    val channelName = channelNameCache.lookup(discordMessage.channelId.value)
+                    val userId = author.id.value
+                    val username = usernameCache.lookup(userId)
+                    val localDate = LocalDate.ofInstant(discordMessage.timestamp.toJavaInstant(), ZoneOffset.UTC)
+                    logger.debug { "Message received from $username on $localDate in $channelName" }
+                    onMessage.invoke(
+                        Message(
+                            channelId = discordMessage.channelId.value,
+                            messageId = discordMessage.id.value,
+                            userId = userId,
+                            instant = discordMessage.timestamp,
+                            text = discordMessage.content,
+                        )
+                    )
                 } catch (e: Exception) {
-                    val user = messageCreate.message.member.value?.user?.value
-                    val message = messageCreate.message
-                    val wrapped = ExecutionException("Exception occurred while processing MessageCreate event for message ${message.id.value} in channel ${message.channelId.value} from user ${user?.id?.value} (${user?.username})", e)
+                    val author = message.author
+                    val wrapped = ExecutionException(
+                        "Exception occurred while processing MessageCreateEvent for message ${message.id.value} in channel ${message.channelId.value} from user ${author?.id?.value} (${author?.username})",
+                        e,
+                    )
                     onTopLevelError(wrapped)
                 }
-            }.launchIn(gateway)
+            }
         }
 
         if (onReaction != null) {
-            gateway.events.filterIsInstance<MessageReactionAdd>().onEach { reactionEvent ->
+            kord.on<ReactionAddEvent> {
                 try {
                     val timestamp =
                         Clock.System.now() // discord doesn't provide timestamps for reactions, so we are approximating it by grabbing the timestamp that we receive the event
                     val reaction = Reaction(
-                        reactionEvent.reaction.userId.value,
-                        timestamp,
-                        reactionEvent.reaction.messageId.value,
-                        reactionEvent.reaction.emoji.name ?: ""
+                        userId = userId.value,
+                        instant = timestamp,
+                        messageId = messageId.value,
+                        emoji = emoji.name,
                     )
                     val username = usernameCache.lookup(reaction.userId)
                     logger.debug { "Reaction received from $username on ${reaction.utcDate}: $reaction" }
                     onReaction.invoke(reaction)
                 } catch (e: Exception) {
-                    val user = reactionEvent.reaction.member.value?.user?.value
-                    val message = reactionEvent.reaction
-                    val wrapped = ExecutionException("Exception occurred while processing MessageReactionAdd event of reaction ${message.emoji.name} on message ${message.messageId} in channel ${message.channelId} from user ${user?.id?.value} (${user?.username})", e)
+                    val username = try { usernameCache.lookup(userId.value) } catch (_: Exception) { "unknown" }
+                    val wrapped = ExecutionException(
+                        "Exception occurred while processing ReactionAddEvent of reaction ${emoji.name} on message $messageId in channel $channelId from user ${userId.value} ($username)",
+                        e,
+                    )
                     onTopLevelError(wrapped)
                 }
-            }.launchIn(gateway)
+            }
+        }
+
+        if (onSlashCommand != null) {
+            kord.on<GuildChatInputCommandInteractionCreateEvent> {
+                val interactionWrapper = SlashCommandInteraction(
+                    commandName = interaction.command.rootName,
+                    userId = interaction.user.id.value,
+                    channelId = interaction.channelId.value,
+                    stringOptions = interaction.command.strings,
+                    channelOptions = interaction.command.channels.mapValues { it.value.id.value },
+                    isAdmin = interaction.user.asMember(Snowflake(guildId)).getPermissions().contains(Permission.Administrator),
+                    respond = { text, isError ->
+                        val emoji = if (isError) "❌" else "✅"
+                        interaction.deferPublicResponse().respond { content = "$emoji $text" }
+                    }
+                )
+                onSlashCommand.invoke(interactionWrapper)
+            }
         }
 
         // endlessly listen for events
-        gateway.start(discordApiToken) {
+        kord.login {
             @OptIn(PrivilegedIntent::class)
             intents += Intent.GuildMembers
+            if (onMessage != null) {
+                intents += Intent.GuildMessages
+                @OptIn(PrivilegedIntent::class)
+                intents += Intent.MessageContent
+            }
+            if (onReaction != null) {
+                intents += Intent.GuildMessageReactions
+            }
         }
-    }
-
-    private suspend fun loginForSlashCommands() {
-        val registration = slashCommandRegistration ?: return
-        val onSlashCommand = onSlashCommand ?: return
-        val kord = Kord(discordApiToken)
-        registration.invoke(kord)
-        kord.on<GuildChatInputCommandInteractionCreateEvent> {
-            onSlashCommand.invoke(this)
-        }
-        // endlessly listen for slash command interactions
-        kord.login()
     }
 }

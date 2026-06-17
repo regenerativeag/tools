@@ -32,15 +32,17 @@ class ActiveMemberDiscordBot(
     private val membershipRoleService = MembershipRoleService(discord, activeMemberConfig, database)
     private val updateMembershipRolesService = UpdateMembershipRolesService(discord, membershipRoleService, activeMemberConfig, database)
 
+    private val slashCommandService = SlashCommandService(discord, discord.rooms, activeMemberConfig)
     private val bot = DiscordBot(
         discord,
         discordApiToken,
         onTopLevelError = ::onTopLevelError,
         onJoinedGuild = ::onJoinedGuild,
         onMessage = ::onMessage,
-        onReaction = ::onReaction
+        onReaction = ::onReaction,
+        getSlashCommands = slashCommandService::getCommandDefinitions,
+        onSlashCommand = slashCommandService::handleSlashCommand,
     )
-    private val slashCommandService = SlashCommandService(discord, bot, discord.rooms, activeMemberConfig)
 
 
     fun start() {
@@ -71,7 +73,6 @@ class ActiveMemberDiscordBot(
             dependencies = listOf(loadDatabaseJob, resetRolesJob)
         ) {
             logger.debug { "Listening for discord events" }
-            slashCommandService.configure()
             bot.login() // endlessly listen for websocket events from discord
         }
 
