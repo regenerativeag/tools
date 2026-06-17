@@ -66,21 +66,29 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
     /**
      * Fetch a Discord message by URL.
      * Expected URL format: https://discord.com/channels/<guildId>/<channelId>/<messageId>
+     * @throws IllegalArgumentException if the URL is invalid or refers to a different guild.
+     * @throws KtorRequestException if the message could not be fetched from Discord.
      */
-    open suspend fun getMessageFromUrl(messageUrl: String): Message? {
-        val messageRef = parseMessageUrl(messageUrl) ?: return null
+    open suspend fun getMessageFromUrl(messageUrl: String): Message {
+        val messageRef = parseMessageUrl(messageUrl)
+
         if (messageRef.guildId != guildId) {
-            return null
+            throw IllegalArgumentException("Message URL refers to a different guild: $messageUrl")
         }
 
+        return getMessage(messageRef.channelId, messageRef.messageId)
+    }
+
+    open suspend fun getMessage(channelId: ChannelId, messageId: MessageId): Message {
         return try {
             restClient.channel.getMessage(
-                Snowflake(messageRef.channelId),
-                Snowflake(messageRef.messageId),
+                Snowflake(channelId),
+                Snowflake(messageId),
             ).toMessage()
         } catch (e: KtorRequestException) {
-            logger.debug(e) { "Failed to fetch message from URL: $messageUrl" }
-            null
+            val channelName = channelNameCache.lookup(channelId)
+            logger.debug(e) { "Failed to fetch message $messageId from channel $channelName" }
+            throw e
         }
     }
 
@@ -307,16 +315,21 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         }
     }
 
-    private fun parseMessageUrl(messageUrl: String): MessageReference? {
+    private fun parseMessageUrl(messageUrl: String): MessageReference {
         val regex = Regex(
             pattern = """^https?://(?:ptb\.|canary\.)?discord(?:app)?\.com/channels/(\d+)/(\d+)/(\d+)$""",
             option = RegexOption.IGNORE_CASE,
         )
-        val match = regex.matchEntire(messageUrl.trim()) ?: return null
+        val match = regex.matchEntire(messageUrl.trim())
+            ?: throw IllegalArgumentException("Invalid message URL format. Expected 'https://discord.com/channels/<guildId>/<channelId>/<messageId>'")
+
         return MessageReference(
-            guildId = match.groupValues[1].toULongOrNull() ?: return null,
-            channelId = match.groupValues[2].toULongOrNull() ?: return null,
-            messageId = match.groupValues[3].toULongOrNull() ?: return null,
+            guildId = match.groupValues[1].toULongOrNull()
+                ?: throw IllegalArgumentException("Invalid guild ID in URL: ${match.groupValues[1]}"),
+            channelId = match.groupValues[2].toULongOrNull()
+                ?: throw IllegalArgumentException("Invalid channel ID in URL: ${match.groupValues[2]}"),
+            messageId = match.groupValues[3].toULongOrNull()
+                ?: throw IllegalArgumentException("Invalid message ID in URL: ${match.groupValues[3]}"),
         )
     }
 

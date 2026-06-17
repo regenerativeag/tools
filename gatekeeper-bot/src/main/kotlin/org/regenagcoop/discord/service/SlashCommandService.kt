@@ -48,59 +48,56 @@ class SlashCommandService(
     }
 
     private suspend fun handlePostCommand(interaction: SlashCommandInteraction) {
-        if (!interaction.isAdmin) {
-            interaction.respond("Only admins can run this command.", true)
-            return
-        }
+        try {
+            if (!interaction.isAdmin) {
+                interaction.respond("Only admins can run this command.", true)
+                return
+            }
 
-        val sourceMessageLink = interaction.stringOptions["source_message_link"]
-        val channelId = interaction.channelOptions["channel"]
-        if (sourceMessageLink.isNullOrBlank() || channelId == null) {
-            interaction.respond("Invalid command usage. Please provide both `source_message_link` and `channel`.", true)
-            return
-        }
+            val sourceMessageLink = interaction.stringOptions["source_message_link"]
+            val channelId = interaction.channelOptions["channel"]
+            if (sourceMessageLink.isNullOrBlank() || channelId == null) {
+                interaction.respond("Invalid command usage. Please provide both `source_message_link` and `channel`.", true)
+                return
+            }
 
-        val sourceMessage = roomsDiscordClient.getMessageFromUrl(sourceMessageLink)
-        if (sourceMessage == null) {
-            interaction.respond("Invalid source message link or message could not be fetched.", true)
-            return
-        }
+            val sourceMessage = roomsDiscordClient.getMessageFromUrl(sourceMessageLink)
 
-        roomsDiscordClient.postMessage(message = sourceMessage.text, channelId = channelId)
-        interaction.respond("Posted message to <#$channelId> using content from the source message.", false)
+            roomsDiscordClient.postMessage(message = sourceMessage.text, channelId = channelId)
+            interaction.respond("Posted message to <#$channelId> using content from the source message.", false)
+        } catch (e: Exception) {
+            val errorMessage = e.message ?: "Failed to post message due to an unexpected error."
+            interaction.respond(errorMessage, true)
+        }
     }
 
     private suspend fun handleEditCommand(interaction: SlashCommandInteraction) {
-        if (!interaction.isAdmin) {
-            interaction.respond("Only admins can run this command.", true)
-            return
-        }
+        try {
+            if (!interaction.isAdmin) {
+                interaction.respond("Only admins can run this command.", true)
+                return
+            }
 
-        val sourceMessageLink = interaction.stringOptions["source_message_link"]
-        val targetMessageLink = interaction.stringOptions["target_message_link"]
-        if (sourceMessageLink.isNullOrBlank() || targetMessageLink.isNullOrBlank()) {
-            interaction.respond("Invalid command usage. Please provide both `source_message_link` and `target_message_link`.", true)
-            return
-        }
+            val sourceMessageLink = interaction.stringOptions["source_message_link"]
+            val targetMessageLink = interaction.stringOptions["target_message_link"]
+            if (sourceMessageLink.isNullOrBlank() || targetMessageLink.isNullOrBlank()) {
+                interaction.respond("Invalid command usage. Please provide both `source_message_link` and `target_message_link`.", true)
+                return
+            }
 
-        val sourceMessage = roomsDiscordClient.getMessageFromUrl(sourceMessageLink)
-        if (sourceMessage == null) {
-            interaction.respond("Invalid source message link or message could not be fetched.", true)
-            return
-        }
+            val sourceMessage = roomsDiscordClient.getMessageFromUrl(sourceMessageLink)
+            val targetMessage = roomsDiscordClient.getMessageFromUrl(targetMessageLink)
 
-        val targetMessage = roomsDiscordClient.getMessageFromUrl(targetMessageLink)
-        if (targetMessage == null) {
-            interaction.respond("Invalid target message link or message could not be fetched.", true)
-            return
+            roomsDiscordClient.editMessage(
+                channelId = targetMessage.channelId,
+                messageId = targetMessage.messageId,
+                newText = sourceMessage.text,
+            )
+            interaction.respond("Edited target message in <#${targetMessage.channelId}> using source message content.", false)
+        } catch (e: Exception) {
+            val errorMessage = e.message ?: "Failed to edit message due to an unexpected error."
+            interaction.respond(errorMessage, true)
         }
-
-        roomsDiscordClient.editMessage(
-            channelId = targetMessage.channelId,
-            messageId = targetMessage.messageId,
-            newText = sourceMessage.text,
-        )
-        interaction.respond("Edited target message in <#${targetMessage.channelId}> using source message content.", false)
     }
 
     private fun normalizeSlashCommandName(configValue: String): String {
