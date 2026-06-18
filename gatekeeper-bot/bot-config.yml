@@ -191,8 +191,8 @@ errorConfig:
 # Slash commands to register for this bot.
 # Discord displays these commands with a leading `/`.
 slashCommandConfig:
-  postCommand: "post"
-  editCommand: "edit"
+  postCommand: "rac-post"
+  editCommand: "rac-edit"
 
 # TODO #26: make optional
 welcomeToGuildMessageConfig:
