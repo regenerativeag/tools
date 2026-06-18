@@ -18,21 +18,21 @@ class SlashCommandService(
     private val postCommandName = normalizeSlashCommandName(activeMemberConfig.slashCommandConfig.postCommand)
     private val editCommandName = normalizeSlashCommandName(activeMemberConfig.slashCommandConfig.editCommand)
 
-    fun getCommandDefinitions(): List<SlashCommandDefinition> = listOf(
+    val commandDefinitions = listOf(
         SlashCommandDefinition(
             name = postCommandName,
-            description = "Post a copy of a linked message",
+            description = "Post a message to a room as our bot",
             options = listOf(
-                SlashCommandOption("source_message_link", "Discord message link to copy content from", SlashCommandOptionType.STRING, true),
-                SlashCommandOption("channel", "Channel where the message will be posted", SlashCommandOptionType.CHANNEL, true)
+                SlashCommandOption("message_to_copy", "A link to a message you want to copy", SlashCommandOptionType.STRING, true),
+                SlashCommandOption("channel", "The channel you want our bot to post to", SlashCommandOptionType.CHANNEL, true)
             )
         ),
         SlashCommandDefinition(
             name = editCommandName,
-            description = "Edit a message to match another linked message",
+            description = "Edit one of the bot's messages",
             options = listOf(
-                SlashCommandOption("source_message_link", "Discord message link to copy content from", SlashCommandOptionType.STRING, true),
-                SlashCommandOption("target_message_link", "Discord message link to edit", SlashCommandOptionType.STRING, true)
+                SlashCommandOption("message_to_edit", "A link to a message written by this bot that you want to edit", SlashCommandOptionType.STRING, true),
+                SlashCommandOption("message_to_copy", "A link to a message containing exactly what you want the bot's message to say", SlashCommandOptionType.STRING, true),
             )
         )
     )
@@ -42,7 +42,7 @@ class SlashCommandService(
             postCommandName -> handlePostCommand(interaction)
             editCommandName -> handleEditCommand(interaction)
             else -> {
-                // no-op
+              throw IllegalArgumentException("Unrecognized slash command: ${interaction.commandName}")
             }
         }
     }
@@ -54,17 +54,17 @@ class SlashCommandService(
                 return
             }
 
-            val sourceMessageLink = interaction.stringOptions["source_message_link"]
+            val urlOfMessageToCopy = interaction.stringOptions["message_to_copy"]
             val channelId = interaction.channelOptions["channel"]
-            if (sourceMessageLink.isNullOrBlank() || channelId == null) {
-                interaction.respond("Invalid command usage. Please provide both `source_message_link` and `channel`.", true)
+            if (urlOfMessageToCopy.isNullOrBlank() || channelId == null) {
+                interaction.respond("Invalid command usage. Please provide both `message_to_copy` and `channel`.", true)
                 return
             }
 
-            val sourceMessage = roomsDiscordClient.getMessageFromUrl(sourceMessageLink)
+            val messageToCopy = roomsDiscordClient.getMessageFromUrl(urlOfMessageToCopy)
 
-            roomsDiscordClient.postMessage(message = sourceMessage.text, channelId = channelId)
-            interaction.respond("Posted message to <#$channelId> using content from the source message.", false)
+            roomsDiscordClient.postMessage(message = messageToCopy.text, channelId = channelId)
+            interaction.respond("Posted message to <#$channelId>.", false)
         } catch (e: Exception) {
             val errorMessage = e.message ?: "Failed to post message due to an unexpected error."
             interaction.respond(errorMessage, true)
@@ -78,22 +78,22 @@ class SlashCommandService(
                 return
             }
 
-            val sourceMessageLink = interaction.stringOptions["source_message_link"]
-            val targetMessageLink = interaction.stringOptions["target_message_link"]
-            if (sourceMessageLink.isNullOrBlank() || targetMessageLink.isNullOrBlank()) {
-                interaction.respond("Invalid command usage. Please provide both `source_message_link` and `target_message_link`.", true)
+            val urlOfMessageToCopy = interaction.stringOptions["message_to_copy"]
+            val urlOfMessageToEdit = interaction.stringOptions["message_to_edit"]
+            if (urlOfMessageToCopy.isNullOrBlank() || urlOfMessageToEdit.isNullOrBlank()) {
+                interaction.respond("Invalid command usage. Please provide both `message_to_copy` and `message_to_edit`.", true)
                 return
             }
 
-            val sourceMessage = roomsDiscordClient.getMessageFromUrl(sourceMessageLink)
-            val targetMessage = roomsDiscordClient.getMessageFromUrl(targetMessageLink)
+            val messageToCopy = roomsDiscordClient.getMessageFromUrl(urlOfMessageToCopy)
+            val messageToEdit = roomsDiscordClient.getMessageFromUrl(urlOfMessageToEdit)
 
             roomsDiscordClient.editMessage(
-                channelId = targetMessage.channelId,
-                messageId = targetMessage.messageId,
-                newText = sourceMessage.text,
+                channelId = messageToEdit.channelId,
+                messageId = messageToEdit.messageId,
+                newText = messageToCopy.text,
             )
-            interaction.respond("Edited target message in <#${targetMessage.channelId}> using source message content.", false)
+            interaction.respond("Edited message in <#${messageToEdit.channelId}>: ${urlOfMessageToEdit}.", false)
         } catch (e: Exception) {
             val errorMessage = e.message ?: "Failed to edit message due to an unexpected error."
             interaction.respond(errorMessage, true)
