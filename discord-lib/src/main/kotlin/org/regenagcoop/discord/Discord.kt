@@ -31,6 +31,7 @@ open class Discord @OptIn(KordUnsafe::class) constructor(
     val usernameCache = UsernameCache(restClient)
     val channelNameCache = ChannelNameCache(restClient)
     val roleNameCache = RoleNameCache(restClient, guildId)
+    val loggedInUserId = restClient.user.getCurrentUser().id.value
 
     val guild = GuildDiscordClient(this)
     val users = UsersDiscordClient(this)

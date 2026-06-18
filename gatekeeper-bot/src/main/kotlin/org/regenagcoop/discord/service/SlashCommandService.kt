@@ -9,7 +9,7 @@ import org.regenagcoop.model.config.ActiveMemberConfig
 
 /** Handles slash command registration and execution for moderator workflows. */
 class SlashCommandService(
-    discord: Discord,
+    private val discord: Discord,
     private val roomsDiscordClient: RoomsDiscordClient,
     private val activeMemberConfig: ActiveMemberConfig,
 ) : DiscordClient(discord) {
@@ -85,8 +85,13 @@ class SlashCommandService(
                 return
             }
 
-            val messageToCopy = roomsDiscordClient.getMessageFromUrl(urlOfMessageToCopy)
             val messageToEdit = roomsDiscordClient.getMessageFromUrl(urlOfMessageToEdit)
+
+            if (messageToEdit.userId != discord.loggedInUserId) {
+                interaction.respond("`message_to_edit` must be a message written by our bot.", true)
+            }
+
+            val messageToCopy = roomsDiscordClient.getMessageFromUrl(urlOfMessageToCopy)
 
             roomsDiscordClient.editMessage(
                 channelId = messageToEdit.channelId,
