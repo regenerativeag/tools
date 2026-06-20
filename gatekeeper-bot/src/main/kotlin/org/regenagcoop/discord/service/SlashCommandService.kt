@@ -9,7 +9,7 @@ import org.regenagcoop.model.config.ActiveMemberConfig
 
 /** Handles slash command registration and execution for moderator workflows. */
 class SlashCommandService(
-    private val discord: Discord,
+    discord: Discord,
     private val roomsDiscordClient: RoomsDiscordClient,
     private val activeMemberConfig: ActiveMemberConfig,
 ) : DiscordClient(discord) {
@@ -55,7 +55,7 @@ class SlashCommandService(
             }
 
             val urlOfMessageToCopy = interaction.stringOptions["message_to_copy"]
-            val channelId = interaction.channelOptions["channel"]
+            val channelId = interaction.channelOptions["channel"]?.toULong()
             if (urlOfMessageToCopy.isNullOrBlank() || channelId == null) {
                 interaction.respond("Invalid command usage. Please provide both `message_to_copy` and `channel`.", true)
                 return

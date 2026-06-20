@@ -5,10 +5,12 @@ import dev.kord.rest.ratelimit.ParallelRequestRateLimiter
 import dev.kord.rest.request.KtorRequestHandler
 import dev.kord.rest.service.RestClient
 import io.ktor.client.*
+import kotlinx.coroutines.runBlocking
 import org.regenagcoop.discord.client.GuildDiscordClient
 import org.regenagcoop.discord.client.RoomsDiscordClient
 import org.regenagcoop.discord.client.UsersDiscordClient
 import org.regenagcoop.discord.model.GuildId
+import org.regenagcoop.discord.model.UserId
 
 /**
  * A discord client for a given guild/server.
@@ -31,7 +33,12 @@ open class Discord @OptIn(KordUnsafe::class) constructor(
     val usernameCache = UsernameCache(restClient)
     val channelNameCache = ChannelNameCache(restClient)
     val roleNameCache = RoleNameCache(restClient, guildId)
-    val loggedInUserId = restClient.user.getCurrentUser().id.value
+
+    val loggedInUserId: UserId by lazy {
+        runBlocking {
+            restClient.user.getCurrentUser().id.value
+        }
+    }
 
     val guild = GuildDiscordClient(this)
     val users = UsersDiscordClient(this)

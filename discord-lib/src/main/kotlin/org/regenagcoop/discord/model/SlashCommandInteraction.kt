@@ -3,7 +3,7 @@ package org.regenagcoop.discord.model
 data class SlashCommandInteraction(
     val commandName: String,
     val userId: UserId,
-    val channelId: Long,
+    val channelId: ChannelId,
     val stringOptions: Map<String, String>,
     val channelOptions: Map<String, Long>,
     val isAdmin: Boolean,

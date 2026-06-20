@@ -40,7 +40,7 @@ class ActiveMemberDiscordBot(
         onJoinedGuild = ::onJoinedGuild,
         onMessage = ::onMessage,
         onReaction = ::onReaction,
-        getSlashCommands = slashCommandService::getCommandDefinitions,
+        getSlashCommands = { slashCommandService.commandDefinitions },
         onSlashCommand = slashCommandService::handleSlashCommand,
     )
 

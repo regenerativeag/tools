@@ -3,8 +3,9 @@ package org.regenagcoop.discord
 import dev.kord.common.entity.Permission
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
-import dev.kord.core.behavior.interaction.createGuildChatInputCommand
 import dev.kord.core.behavior.interaction.response.respond
+import dev.kord.rest.builder.interaction.channel
+import dev.kord.rest.builder.interaction.string
 import dev.kord.core.event.guild.MemberJoinEvent
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.core.event.message.MessageCreateEvent
@@ -134,7 +135,7 @@ open class DiscordBot(
                     userId = interaction.user.id.value,
                     channelId = interaction.channelId.value,
                     stringOptions = interaction.command.strings,
-                    channelOptions = interaction.command.channels.mapValues { it.value.id.value },
+                    channelOptions = interaction.command.channels.mapValues { it.value.id.value.toLong() },
                     isAdmin = interaction.user.asMember(Snowflake(guildId)).getPermissions().contains(Permission.Administrator),
                     respond = { text, isError ->
                         val emoji = if (isError) "❌" else "✅"
