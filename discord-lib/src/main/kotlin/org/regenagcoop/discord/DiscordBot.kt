@@ -77,21 +77,24 @@ open class DiscordBot(
                 try {
                     val discordMessage = message
                     val author = discordMessage.author
-                        ?: throw IllegalStateException("Message ${discordMessage.id.value} has no author")
-                    val channelName = channelNameCache.lookup(discordMessage.channelId.value)
-                    val userId = author.id.value
-                    val username = usernameCache.lookup(userId)
-                    val localDate = LocalDate.ofInstant(discordMessage.timestamp.toJavaInstant(), ZoneOffset.UTC)
-                    logger.debug { "Message received from $username on $localDate in $channelName" }
-                    onMessage.invoke(
-                        Message(
-                            channelId = discordMessage.channelId.value,
-                            messageId = discordMessage.id.value,
-                            userId = userId,
-                            instant = discordMessage.timestamp,
-                            text = discordMessage.content,
-                        )
-                    )
+                    if (author == null) {
+                      logger.info { "Ignoring message from author=null: ${discordMessage.id.value}: \"${discordMessage.content}\"" }
+                    } else {
+                      val channelName = channelNameCache.lookup(discordMessage.channelId.value)
+                      val userId = author.id.value
+                      val username = usernameCache.lookup(userId)
+                      val localDate = LocalDate.ofInstant(discordMessage.timestamp.toJavaInstant(), ZoneOffset.UTC)
+                      logger.debug { "Message received from $username on $localDate in $channelName" }
+                      onMessage.invoke(
+                          Message(
+                              channelId = discordMessage.channelId.value,
+                              messageId = discordMessage.id.value,
+                              userId = userId,
+                              instant = discordMessage.timestamp,
+                              text = discordMessage.content,
+                          )
+                      )
+                    }
                 } catch (e: Exception) {
                     val author = message.author
                     val wrapped = ExecutionException(
