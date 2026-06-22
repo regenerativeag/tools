@@ -12,7 +12,6 @@ data class ActiveMemberConfig(
     val noRoleName: String = "NO_ROLE",
     val errorConfig: ErrorConfig,
     val welcomeToGuildMessageConfig: WelcomeMessageConfig,
-    val slashCommandConfig: SlashCommandConfig,
 ) {
     private val maxWindowSize: UInt = roleConfigs.flatMap { cfg ->
         cfg.paths.map { path -> path.daysToConsider }
