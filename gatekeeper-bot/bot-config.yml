@@ -188,6 +188,11 @@ persistenceConfig:
 errorConfig:
   channel: 1230667079213125702 # moderation-log
 
+# Slash commands to register for this bot.
+# Discord displays these commands with a leading `/`.
+slashCommandConfig:
+  postCommand: "rac-post"
+  editCommand: "rac-edit"
 
 # TODO #26: make optional
 welcomeToGuildMessageConfig:

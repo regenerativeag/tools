@@ -32,13 +32,16 @@ class ActiveMemberDiscordBot(
     private val membershipRoleService = MembershipRoleService(discord, activeMemberConfig, database)
     private val updateMembershipRolesService = UpdateMembershipRolesService(discord, membershipRoleService, activeMemberConfig, database)
 
+    private val slashCommandService = SlashCommandService(discord, discord.rooms, activeMemberConfig)
     private val bot = DiscordBot(
         discord,
         discordApiToken,
         onTopLevelError = ::onTopLevelError,
         onJoinedGuild = ::onJoinedGuild,
         onMessage = ::onMessage,
-        onReaction = ::onReaction
+        onReaction = ::onReaction,
+        getSlashCommands = { slashCommandService.commandDefinitions },
+        onSlashCommand = slashCommandService::handleSlashCommand,
     )
 
 
