@@ -13,7 +13,11 @@ dependencies {
         runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesCore")
 
         implementation("com.github.ajalt.clikt:clikt:$clikt")
-        implementation("io.ktor:ktor-client-cio:$ktorCio")
+
+        // Import Ktor BOM to align versions automatically
+        implementation(platform("io.ktor:ktor-bom:$ktor"))
+        implementation("io.ktor:ktor-client-core")
+        implementation("io.ktor:ktor-client-cio")
     }
 
     with(BuildConstants.TestDependencyVersions) {
