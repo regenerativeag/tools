@@ -11,7 +11,7 @@ data class ActiveMemberConfig(
     val persistenceConfig: PersistenceConfig,
     val noRoleName: String = "NO_ROLE",
     val errorConfig: ErrorConfig,
-    val welcomeToGuildMessageConfig: WelcomeMessageConfig,
+    val welcomeToGuildMessageConfig: WelcomeMessageConfig? = null,
     val slashCommandConfig: SlashCommandConfig,
 ) {
     private val maxWindowSize: UInt = roleConfigs.flatMap { cfg ->

@@ -95,9 +95,6 @@ roleConfigs:
             - type: reacted
               emoji: "👍"
               messageId: 1322322546296885341 # message in quiet garden
-        welcomeMessageConfig:
-          channel: 1162019178513956954 # introductions
-          template: "Welcome back, USER_MENTION!"
 
   # Guest
   - roleId: 1240396803946582056
@@ -111,9 +108,6 @@ roleConfigs:
               roleId: null # no active role, aka visitor
             - type: post_days
               atLeast: 1
-        welcomeMessageConfig:
-          channel: 1162017937796911209 # connect
-          template: "A warm hello to our newest Guest, USER_MENTION :relaxed:"
       # The user has the "Inactive" role, has posted within the last 180 days, and reacts with a 👍 in #quiet-garden
       - daysToConsider: 180
         rule:
@@ -126,10 +120,7 @@ roleConfigs:
             - type: reacted
               emoji: "👍"
               messageId: 1322322546296885341 # message in quiet garden
-        welcomeMessageConfig:
-          channel: 1162017937796911209 # connect
-          template: "Welcome back, USER_MENTION!"
-
+        
   # Active Member
   - roleId: 1223026651340996698
     paths:
@@ -149,9 +140,7 @@ roleConfigs:
             
             
             You are now an Active Member :relieved: You can choose your name-tag color in <#1228353194493476894>.
-            
-            
-            When you have a few minutes of free time, please take a brief glance over our [Community Guide](https://regenagcoop.org/community-guide/).
+
       # The user has the "Inactive Member" role, and reacts with a 👍 in #quiet-garden
       - daysToConsider: 0 # no post or reaction history used, only current state
         rule:
@@ -162,10 +151,6 @@ roleConfigs:
             - type: reacted
               emoji: "👍"
               messageId: 1322322546296885341 # message in quiet garden
-        welcomeMessageConfig:
-          channel: 1223262623194153111 # community
-          template: "Welcome back, USER_MENTION :relaxed:"
-
 
 
 # The name to log when a user qualifies for no roles, and/or the roleConfig with roleId=null
@@ -194,35 +179,5 @@ slashCommandConfig:
   postCommand: "rac-post"
   editCommand: "rac-edit"
 
-# TODO #26: make optional
 welcomeToGuildMessageConfig:
-  channel: 1162019178513956954 # introductions
-  template: >-
-    Welcome, USER_MENTION! To kick things off, we'd love to hear a little about your interests and experiences in regeneration. We sent you a direct message with some questions you can use to inspire your introduction.
-
-  directMessageConfig:
-    message: >-
-      Welcome to the Regenerative Ag Coop!
-      
-      
-      Here are some questions we'd like to connect with you on. These are just suggestions, feel free to introduce yourself in whatever way is comfortable :relieved:
-      
-      
-      When you're ready, please come introduce yourself over in <#1162019178513956954>.
-      
-      
-      
-      1. **Tell us a bit about your journey into regenerative agriculture.** 
-         Where are you located (roughly)? What inspired you to pursue regenerative practices? How long have you been working in this space? 
-      
-      2. **What does your regenerative operation look like?** 
-         We'd love to hear details about your farm, business, or project—its size, focus (e.g., livestock, crops, agroforestry), and any key practices you’re using.
-      
-      3. **What is the biggest challenge you’re currently facing in your work?** 
-         Are there particular obstacles—such as access to markets, managing soil health, or regulatory hurdles—that you'd like support or advice on?
-      
-      4. **What skills, knowledge, or experiences can you offer to other members?** 
-         Maybe you have expertise in composting, marketing local produce, or navigating grants... How would you like to contribute?
-      
-      5. **What are you most excited to explore with our community?** 
-         Are there specific topics or collaborations you’re hoping to engage with? E.g. biodiversity, carbon markets, creating resilient local food systems...
+  null
