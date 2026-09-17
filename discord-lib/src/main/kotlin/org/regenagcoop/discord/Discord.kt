@@ -6,6 +6,7 @@ import dev.kord.rest.request.KtorRequestHandler
 import dev.kord.rest.service.RestClient
 import io.ktor.client.*
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
 import org.regenagcoop.discord.client.GuildDiscordClient
 import org.regenagcoop.discord.client.RoomsDiscordClient
 import org.regenagcoop.discord.client.UsersDiscordClient
@@ -25,7 +26,12 @@ open class Discord @OptIn(KordUnsafe::class) constructor(
             httpClient,
             // TODO #13: Consider a different RateLimiter - https://github.com/regenerativeag/tools/issues/13
             requestRateLimiter = ParallelRequestRateLimiter(),
-            token = token
+            token = token,
+            parser = Json {
+              ignoreUnknownKeys = true
+              explicitNulls = false
+              coerceInputValues = true
+            }
         )
     ),
 ) {
