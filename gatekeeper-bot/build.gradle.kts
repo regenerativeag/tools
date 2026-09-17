@@ -13,6 +13,7 @@ dependencies {
         runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesCore")
 
         implementation("com.github.ajalt.clikt:clikt:$clikt")
+        implementation("io.ktor:ktor-client-cio:$ktorCio")
     }
 
     with(BuildConstants.TestDependencyVersions) {

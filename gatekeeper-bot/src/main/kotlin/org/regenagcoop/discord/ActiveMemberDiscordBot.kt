@@ -4,7 +4,7 @@ import io.ktor.client.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.regenagcoop.Database
 import org.regenagcoop.coroutine.TopLevelJob.Companion.awaitEndlessJobs
 import org.regenagcoop.coroutine.TopLevelJob.Companion.createTopLevelJob

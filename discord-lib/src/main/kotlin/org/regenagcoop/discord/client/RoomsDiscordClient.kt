@@ -1,6 +1,5 @@
 package org.regenagcoop.discord.client
 
-import co.touchlab.stately.collections.ConcurrentMutableList
 import dev.kord.common.entity.DiscordChannel
 import dev.kord.common.entity.DiscordMessage
 import dev.kord.common.entity.Snowflake
@@ -10,9 +9,11 @@ import dev.kord.rest.json.response.ListThreadsResponse
 import dev.kord.rest.request.KtorRequestException
 import dev.kord.rest.route.Position
 import kotlinx.coroutines.*
-import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
-import mu.KotlinLogging
+import kotlin.time.Clock
+import kotlin.time.Instant
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.regenagcoop.coroutine.parallelMapIO
 import org.regenagcoop.discord.*
 import org.regenagcoop.discord.model.ChannelId
@@ -221,7 +222,8 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         threadsToScanInParallel: Int = 5,
     ): List<Message> {
         val channelName = channelNameCache.lookup(channelId)
-        val threadNameAndMessagesPerThread = ConcurrentMutableList<Pair<String, List<Message>>>()
+        val threadNameAndMessagesPerThread = mutableListOf<Pair<String, List<Message>>>()
+        val threadMessagesMutex = Mutex()
 
         suspend fun addMessagesFrom(
             listThreadsFunction: suspend (Snowflake, ListThreadsByTimestampRequest) -> ListThreadsResponse
@@ -244,10 +246,11 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
                     val archivedChannelId = archivedThread.id.value
                     fetchMessagesFromChannel(readBackUntil, archivedChannelId)
                 }
-
-                threadNameAndMessagesPerThread.addAll(archivedThreads.zip(messagesPerThread).map { (thread, messages) ->
-                    thread.name.value.orEmpty() to messages
-                })
+                threadMessagesMutex.withLock {
+                  threadNameAndMessagesPerThread.addAll(archivedThreads.zip(messagesPerThread).map { (thread, messages) ->
+                      thread.name.value.orEmpty() to messages
+                  })
+                }
 
                 // Grab the archived timestamp from the last thread
                 lastArchivedTimestamp = archivedThreads.last().let { lastArchivedThread ->
@@ -270,9 +273,11 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
             }
         }
 
-        logger.debug { "finished processing archived threads in $channelName: ${threadNameAndMessagesPerThread.map { it.first }}" }
+        return threadMessagesMutex.withLock {
+          logger.debug { "finished processing archived threads in $channelName: ${threadNameAndMessagesPerThread.map { it.first }}" }
 
-        return threadNameAndMessagesPerThread.flatMap { it.second }
+          threadNameAndMessagesPerThread.flatMap { it.second }
+        }
     }
 
     private suspend fun listArchivedThreads(

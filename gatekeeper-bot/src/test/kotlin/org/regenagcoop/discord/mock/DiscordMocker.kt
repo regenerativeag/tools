@@ -3,7 +3,7 @@ package org.regenagcoop.discord.mock
 import dev.kord.rest.service.RestClient
 import io.ktor.client.*
 import io.mockk.mockk
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import org.regenagcoop.UserIds
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.client.RoomsDiscordClient

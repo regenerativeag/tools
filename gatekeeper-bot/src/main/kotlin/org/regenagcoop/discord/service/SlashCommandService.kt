@@ -1,6 +1,6 @@
 package org.regenagcoop.discord.service
 
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.client.RoomsDiscordClient
