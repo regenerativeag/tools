@@ -95,9 +95,6 @@ roleConfigs:
             - type: reacted
               emoji: "👍"
               messageId: 1322322546296885341 # message in quiet garden
-        welcomeMessageConfig:
-          channel: 1162019178513956954 # introductions
-          template: "Welcome back, USER_MENTION!"
 
   # Guest
   - roleId: 1240396803946582056
@@ -111,9 +108,6 @@ roleConfigs:
               roleId: null # no active role, aka visitor
             - type: post_days
               atLeast: 1
-        welcomeMessageConfig:
-          channel: 1162017937796911209 # connect
-          template: "A warm hello to our newest Guest, USER_MENTION :relaxed:"
       # The user has the "Inactive" role, has posted within the last 180 days, and reacts with a 👍 in #quiet-garden
       - daysToConsider: 180
         rule:
@@ -126,10 +120,7 @@ roleConfigs:
             - type: reacted
               emoji: "👍"
               messageId: 1322322546296885341 # message in quiet garden
-        welcomeMessageConfig:
-          channel: 1162017937796911209 # connect
-          template: "Welcome back, USER_MENTION!"
-
+        
   # Active Member
   - roleId: 1223026651340996698
     paths:
@@ -149,9 +140,7 @@ roleConfigs:
             
             
             You are now an Active Member :relieved: You can choose your name-tag color in <#1228353194493476894>.
-            
-            
-            When you have a few minutes of free time, please take a brief glance over our [Community Guide](https://regenagcoop.org/community-guide/).
+
       # The user has the "Inactive Member" role, and reacts with a 👍 in #quiet-garden
       - daysToConsider: 0 # no post or reaction history used, only current state
         rule:
@@ -162,10 +151,6 @@ roleConfigs:
             - type: reacted
               emoji: "👍"
               messageId: 1322322546296885341 # message in quiet garden
-        welcomeMessageConfig:
-          channel: 1223262623194153111 # community
-          template: "Welcome back, USER_MENTION :relaxed:"
-
 
 
 # The name to log when a user qualifies for no roles, and/or the roleConfig with roleId=null
