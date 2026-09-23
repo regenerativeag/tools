@@ -9,7 +9,7 @@ object BuildConstants {
         val slf4j = "2.0.3"
         val kotlinLogging = "5.1.0"
         val kotlinCoroutinesCore = "1.8.0"
-        val kord = "0.18.1"
+        val kord = "0.19.0-SNAPSHOT"
         val ktor = "3.1.1"
         val jackson = "2.17.1"
         val clikt = "4.4.0"
