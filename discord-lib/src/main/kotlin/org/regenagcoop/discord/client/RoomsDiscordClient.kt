@@ -14,6 +14,7 @@ import kotlin.time.Instant
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.regenagcoop.coroutine.parallelForEachIO
 import org.regenagcoop.coroutine.parallelMapIO
 import org.regenagcoop.discord.*
 import org.regenagcoop.discord.model.ChannelId
@@ -107,16 +108,31 @@ open class RoomsDiscordClient(discord: Discord) : DiscordClient(discord) {
         val activeThreadNames = activeThreadIds.parallelMapIO { discord.channelNameCache.lookup(it) }
         logger.debug { "Found active threads: $activeThreadNames" }
 
-        return activeThreadIds.zip(activeThreadNames).parallelMapIO { (activeThreadId, activeThreadName) ->
+        val messages = mutableListOf<Message>()
+        val mutex = Mutex()
+
+        activeThreadIds.zip(activeThreadNames).parallelForEachIO { (activeThreadId, activeThreadName) ->
             try {
-                discord.rooms.fetchMessagesFromChannel(readBackUntil, activeThreadId)
-            } catch(e: Throwable) {
-                if (e !is CancellationException) {
-                    logger.debug(e) { "Failed to read messages from active thread: $activeThreadName"}
+                val fetched = discord.rooms.fetchMessagesFromChannel(readBackUntil, activeThreadId)
+                mutex.withLock {
+                  messages.addAll(fetched)
                 }
-                throw e
+            } catch(e: Throwable) {
+                if (e is KtorRequestException) {
+                  val message = e.message
+                  if (message != null && "403 Forbidden" in message) {
+                    logger.debug() { "Ignoring private active thread: $activeThreadName"}
+                  } else {
+                    throw e
+                  }
+                } else {
+                    logger.debug(e) { "Failed to read messages from active thread: $activeThreadName"}
+                    throw e
+                }
             }
-        }.flatten()
+        }
+
+        return messages
     }
 
     suspend fun readMessagesFromTopLevelChannelsInGuild(readBackUntil: LocalDate): List<Message> {

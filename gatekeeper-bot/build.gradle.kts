@@ -25,3 +25,17 @@ dependencies {
         testImplementation("io.mockk:mockk:$mockk")
     }
 }
+
+tasks.test {
+    testLogging {
+        // Show standard out and standard error in the console
+        showStandardStreams = true
+
+        // Optional: Customize which events are logged
+        events("failed")
+
+        // Optional: Show full stack traces for exceptions
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
+}
+
