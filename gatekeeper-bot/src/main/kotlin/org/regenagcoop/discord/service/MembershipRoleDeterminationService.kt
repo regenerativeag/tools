@@ -120,6 +120,7 @@ class MembershipRoleDeterminationService(
                     }
                     return false
                 }
+                // TODO: implement "not" rule
                 is Rule.PreviouslyHadRole -> {
                     val qualifyingRoleChange = userActivity.roleChanges.lastOrNull {
                         it.fromRoleId == rule.roleId && it.timestamp >= earliestTimestampToConsider
