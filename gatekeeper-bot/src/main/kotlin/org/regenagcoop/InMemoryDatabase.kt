@@ -19,7 +19,7 @@ class InMemoryDatabase(initialData: ActivityHistory) {
     private val roleChangeHistory = mutableMapOf<UserId, MutableList<RoleChange>>()
 
     init {
-        logger.debug { "Initializing in-memory DB: $initialData" }
+        logger.debug { "Initializing in-memory DB" }
 
         initialData.postHistory.forEach { (userId, dates) ->
             postHistory[userId] = dates.toMutableSet()
