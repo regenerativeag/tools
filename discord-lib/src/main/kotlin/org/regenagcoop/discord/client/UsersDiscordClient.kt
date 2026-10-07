@@ -4,7 +4,7 @@ import dev.kord.common.entity.DiscordGuildMember
 import dev.kord.common.entity.Snowflake
 import dev.kord.rest.json.request.DMCreateRequest
 import dev.kord.rest.route.Position
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.regenagcoop.coroutine.parallelForEachIO
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.RoleId

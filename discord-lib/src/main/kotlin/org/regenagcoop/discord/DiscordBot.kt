@@ -13,9 +13,9 @@ import dev.kord.core.event.message.ReactionAddEvent
 import dev.kord.core.on
 import dev.kord.gateway.Intent
 import dev.kord.gateway.PrivilegedIntent
-import kotlinx.datetime.Clock
-import kotlinx.datetime.toJavaInstant
-import mu.KotlinLogging
+import kotlin.time.Clock
+import kotlin.time.toJavaInstant
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.regenagcoop.discord.client.DiscordClient
 import org.regenagcoop.discord.model.*
 import java.time.LocalDate

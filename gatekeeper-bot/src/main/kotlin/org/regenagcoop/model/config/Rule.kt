@@ -34,6 +34,12 @@ sealed class Rule {
         val rules: List<Rule>,
     ): Rule()
 
+    /** True if the sub [rule] is false */
+    @JsonTypeName("not")
+    data class Not(
+        val rule: Rule,
+    ): Rule()
+    
     /** True if the user had [roleId] in the last [Path.daysToConsider] days */
     @JsonTypeName("previously_had_role")
     data class PreviouslyHadRole(

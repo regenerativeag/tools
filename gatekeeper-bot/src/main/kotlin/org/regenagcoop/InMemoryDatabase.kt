@@ -2,7 +2,7 @@ package org.regenagcoop
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.regenagcoop.discord.model.UserId
 import org.regenagcoop.model.ActivityHistory
 import org.regenagcoop.model.RoleChange
@@ -19,7 +19,7 @@ class InMemoryDatabase(initialData: ActivityHistory) {
     private val roleChangeHistory = mutableMapOf<UserId, MutableList<RoleChange>>()
 
     init {
-        logger.debug { "Initializing in-memory DB: $initialData" }
+        logger.debug { "Initializing in-memory DB" }
 
         initialData.postHistory.forEach { (userId, dates) ->
             postHistory[userId] = dates.toMutableSet()

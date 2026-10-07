@@ -2,7 +2,7 @@ package org.regenagcoop
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.Message
 import org.regenagcoop.discord.model.UserId

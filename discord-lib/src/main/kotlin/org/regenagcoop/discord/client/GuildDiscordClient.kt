@@ -1,7 +1,7 @@
 package org.regenagcoop.discord.client
 
 import dev.kord.common.entity.ChannelType
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.regenagcoop.discord.Discord
 import org.regenagcoop.discord.model.ChannelId
 

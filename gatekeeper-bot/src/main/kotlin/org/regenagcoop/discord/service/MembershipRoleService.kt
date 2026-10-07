@@ -1,6 +1,6 @@
 package org.regenagcoop.discord.service
 
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.regenagcoop.Database
 import org.regenagcoop.coroutine.parallelForEachIO
 import org.regenagcoop.coroutine.parallelMapIO

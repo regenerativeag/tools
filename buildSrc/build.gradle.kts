@@ -10,8 +10,8 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin.jvm:org.jetbrains.kotlin.jvm.gradle.plugin:1.9.23")
-    implementation("com.github.johnrengelman:shadow:8.1.1")
+    implementation("org.jetbrains.kotlin.jvm:org.jetbrains.kotlin.jvm.gradle.plugin:2.4.20")
+    implementation("com.gradleup.shadow:com.gradleup.shadow.gradle.plugin:9.6.1")
 }
 
 kotlin {

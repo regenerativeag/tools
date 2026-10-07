@@ -5,7 +5,7 @@ private val mainClassName = "org.regenagcoop.MainKt"
 plugins {
     kotlin("jvm")
     application
-    id("com.github.johnrengelman.shadow")
+    id("com.gradleup.shadow")
 }
 
 application {

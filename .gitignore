@@ -11,3 +11,5 @@ build
 .idea
 
 AGENTS.md
+
+*.sw*
